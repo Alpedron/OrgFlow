@@ -1,0 +1,27 @@
+# Dependencies
+node_modules/
+
+# Environment files — never commit real secrets
+.env
+server/.env
+
+# Build output
+client/dist/
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Editor
+.vscode/
+.idea/
+
+# Logs
+*.log
+npm-debug.log*
+
+# Local data stores (accounts and org data) — never commit
+server/data/users.json
+server/data/store.json
+server/data/*.tmp
+server/data/uploads/
