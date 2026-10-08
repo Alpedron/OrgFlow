@@ -186,6 +186,7 @@
 }
 
 .setup-officer-role { flex: 0 0 175px; }
+.setup-officer-custom-role { flex: 0 0 175px; }
 .setup-officer-name { flex: 1; }
 
 .setup-remove-btn {

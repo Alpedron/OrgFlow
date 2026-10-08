@@ -2,15 +2,22 @@ import { useState } from "react";
 import { Link } from "react-router-dom";
 import Modal from "./Modal.jsx";
 import { createTask } from "../services/api.js";
+import { useAuth } from "../context/AuthContext.jsx";
 
 const CATEGORIES = ["Logistics", "Marketing", "Finance", "Outreach", "Admin", "Other"];
+const CUSTOM_ROLE = "__custom__";
 
 export default function TaskForm({ events = [], defaultEventId = "", onClose, onSaved }) {
+  const { user } = useAuth();
+  const organizationRoles = Array.from(new Map(
+    (user?.org?.members || []).map((member) => [member.role, member.role])
+  ).values());
   const [form, setForm] = useState({
     title: "",
     event_id: defaultEventId,
     category: "",
     assigned_to: "",
+    custom_role: "",
     due_date: "",
     priority: "medium",
   });
@@ -32,7 +39,7 @@ export default function TaskForm({ events = [], defaultEventId = "", onClose, on
         title: form.title.trim(),
         event_id: form.event_id || null,
         category: form.category || null,
-        assigned_to: form.assigned_to.trim() || null,
+        assigned_to: form.assigned_to === CUSTOM_ROLE ? form.custom_role.trim() : form.assigned_to || null,
         due_date: form.due_date || null,
         priority: form.priority,
       });
@@ -84,7 +91,19 @@ export default function TaskForm({ events = [], defaultEventId = "", onClose, on
           </label>
           <label className="form-field">
             <span className="form-label">Assigned to</span>
-            <input className="input" value={form.assigned_to} onChange={set("assigned_to")} placeholder="Name or role" />
+            <select className="select" value={form.assigned_to} onChange={set("assigned_to")}>
+              <option value="">Everyone / unassigned</option>
+              {organizationRoles.map((role) => <option key={role} value={role}>{role}</option>)}
+              <option value={CUSTOM_ROLE}>Custom role…</option>
+            </select>
+            {form.assigned_to === CUSTOM_ROLE && (
+              <input
+                className="input"
+                value={form.custom_role}
+                onChange={set("custom_role")}
+                placeholder="Enter role name"
+              />
+            )}
           </label>
           <label className="form-field">
             <span className="form-label">Due date</span>

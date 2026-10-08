@@ -64,9 +64,14 @@ export const saveSetup = (data) =>
 // ── Organization (club) ────────────────────────────────────────────────
 
 export const getOrg = () => request("/org");
+export const updateMemberRole = (memberId, role, isAdmin) =>
+  request(`/org/members/${memberId}`, { method: "PATCH", body: { role, isAdmin } });
 export const getOrgHistory = () => request("/org/history");
 export const regenerateJoinCode = () => request("/org/join-code", { method: "POST" });
-export const joinOrg = (joinCode) => request("/setup", { method: "POST", body: { joinCode } });
+export const getJoinRoles = (joinCode) =>
+  request("/setup/join-roles", { method: "POST", body: { joinCode } });
+export const joinOrg = (joinCode, role) =>
+  request("/setup", { method: "POST", body: { joinCode, role } });
 
 // ── Events ─────────────────────────────────────────────────────────────────
 
@@ -81,8 +86,8 @@ export const deleteEvent = (id) =>
 
 // ── Tasks ──────────────────────────────────────────────────────────────────
 
-export const getTasks = (eventId) =>
-  request(`/tasks${eventId ? `?event_id=${eventId}` : ""}`);
+export const getTasks = (eventId, view = "role") =>
+  request(`/tasks${eventId ? `?event_id=${eventId}` : ""}${eventId ? "&" : "?"}view=${view}`);
 export const createTask = (data) =>
   request("/tasks", { method: "POST", body: data });
 export const createTasks = (tasks, eventId) =>

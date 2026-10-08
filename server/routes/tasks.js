@@ -1,12 +1,26 @@
 const { Router } = require("express");
 const db = require("../services/supabaseService");
+const { getUserById } = require("../services/authService");
 
 const router = Router();
+
+function canManageTasks(req) {
+  return Boolean(req.account?.isAdmin || req.org?.created_by === req.account?.id);
+}
 
 // GET /api/tasks?event_id=...
 router.get("/", async (req, res, next) => {
   try {
-    res.json(await db.getTasks(req.orgId, req.query.event_id));
+    const tasks = await db.getTasks(req.orgId, req.query.event_id);
+    if (canManageTasks(req)) return res.json(tasks);
+    if (req.query.view === "all") return res.status(403).json({ error: "Only organization admins can view all tasks" });
+    const currentRole = String(req.account.role || "").trim().toLowerCase();
+    const currentName = String(req.account.name || "").trim().toLowerCase();
+    const visible = tasks.filter((task) => {
+      const assigned = String(task.assigned_to || "").trim().toLowerCase();
+      return assigned === currentRole || assigned === currentName;
+    });
+    res.json(visible);
   } catch (err) {
     next(err);
   }
@@ -18,6 +32,7 @@ router.post("/", async (req, res, next) => {
     if (!req.body.title || !String(req.body.title).trim()) {
       return res.status(400).json({ error: "Task title is required" });
     }
+    if (!canManageTasks(req)) return res.status(403).json({ error: "Only organization admins can assign tasks" });
     const task = await db.createTask(req.orgId, req.body);
     res.status(201).json(task);
   } catch (err) {
@@ -28,6 +43,7 @@ router.post("/", async (req, res, next) => {
 // POST /api/tasks/bulk  — Body: { tasks: [...], event_id? }
 router.post("/bulk", async (req, res, next) => {
   try {
+    if (!canManageTasks(req)) return res.status(403).json({ error: "Only organization admins can assign tasks" });
     const list = Array.isArray(req.body.tasks) ? req.body.tasks : [];
     const valid = list.filter((t) => t && t.title && String(t.title).trim());
     if (valid.length === 0) return res.status(400).json({ error: "No tasks to add" });
@@ -44,6 +60,7 @@ router.post("/bulk", async (req, res, next) => {
 // PATCH /api/tasks/:id
 router.patch("/:id", async (req, res, next) => {
   try {
+    if (!canManageTasks(req)) return res.status(403).json({ error: "Only organization admins can edit tasks" });
     const updated = await db.updateTask(req.orgId, req.params.id, req.body);
     if (!updated) return res.status(404).json({ error: "Task not found" });
     res.json(updated);
@@ -55,6 +72,7 @@ router.patch("/:id", async (req, res, next) => {
 // DELETE /api/tasks/:id
 router.delete("/:id", async (req, res, next) => {
   try {
+    if (!canManageTasks(req)) return res.status(403).json({ error: "Only organization admins can delete tasks" });
     const ok = await db.deleteTask(req.orgId, req.params.id);
     if (!ok) return res.status(404).json({ error: "Task not found" });
     res.json({ success: true });

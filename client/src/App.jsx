@@ -9,11 +9,14 @@ import Events from "./pages/Events.jsx";
 import Tasks from "./pages/Tasks.jsx";
 import Resources from "./pages/Resources.jsx";
 import PassTheTorch from "./pages/PassTheTorch.jsx";
+import Organization from "./pages/Organization.jsx";
+import Landing from "./pages/Landing.jsx";
 
 export default function App() {
   return (
     <Routes>
       {/* Public routes */}
+      <Route path="/" element={<Landing />} />
       <Route path="/login" element={<Login />} />
       <Route path="/setup" element={<Setup />} />
 
@@ -33,6 +36,7 @@ export default function App() {
         <Route path="tasks" element={<Tasks />} />
         <Route path="resources" element={<Resources />} />
         <Route path="pass-the-torch" element={<PassTheTorch />} />
+        <Route path="organization" element={<Organization />} />
       </Route>
 
       {/* Catch-all */}

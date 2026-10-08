@@ -1,23 +1,25 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { useNavigate, Navigate } from "react-router-dom";
 import { GraduationCap, Users, Calendar, CheckCircle2, Plus, Trash2, ChevronRight, ChevronLeft, KeyRound, Sparkles, Copy } from "lucide-react";
-import { saveSetup, joinOrg } from "../services/api.js";
+import { saveSetup, joinOrg, getJoinRoles } from "../services/api.js";
 import { useAuth } from "../context/AuthContext.jsx";
 import { copyTextToClipboard } from "../utils/clipboard.js";
 import "./Setup.css";
 
-const ORG_TYPES = ["Student Government", "Club", "Greek Life", "Other"];
+const ORG_TYPES = ["Student Government", "Club", "Academic Association", "Other"];
+const CUSTOM_ROLE = "__custom__";
 
 const ROLE_OPTIONS = [
-  "President", "Vice President", "Treasurer", "Secretary",
-  "Events Chair", "Marketing Chair", "Community Chair", "Member at Large",
+  "President", "Vice President", "Secretary", "Treasurer",
+  "Events Coordinator", "Public Relations Officer", "Liaison", "General Member",
+  { value: CUSTOM_ROLE, label: "Custom role…" },
 ];
 
 const STEPS = [
   { id: "org",     label: "Your Organization", icon: GraduationCap },
   { id: "officers",label: "Officer Roles",     icon: Users },
   { id: "event",   label: "First Event",       icon: Calendar },
-  { id: "done",    label: "All Set",            icon: CheckCircle2 },
+  { id: "done",    label: "All Set",           icon: CheckCircle2 },
 ];
 
 function StepIndicator({ current }) {
@@ -48,6 +50,8 @@ export default function Setup() {
   // null = choose, "create" = new club (or edit yours), "join" = join with invite code
   const [mode, setMode] = useState(existing.configured ? "create" : null);
   const [joinCode, setJoinCode] = useState("");
+  const [joinRole, setJoinRole] = useState("");
+  const [joinRoles, setJoinRoles] = useState([]);
   const [inviteCode, setInviteCode] = useState(existing.join_code || "");
   const [copied, setCopied] = useState(false);
   const [copyError, setCopyError] = useState("");
@@ -73,10 +77,29 @@ export default function Setup() {
   const [eventAttendance, setEventAttendance] = useState("");
   const [eventBudget, setEventBudget] = useState("");
 
+  useEffect(() => {
+    if (joinCode.replace(/[^A-Z0-9]/gi, "").length !== 8) {
+      setJoinRoles([]);
+      setJoinRole("");
+      return;
+    }
+    let active = true;
+    getJoinRoles(joinCode)
+      .then(({ roles }) => {
+        if (!active) return;
+        setJoinRoles(roles);
+        if (roles.length && !roles.includes(joinRole)) setJoinRole(roles[0]);
+      })
+      .catch((err) => {
+        if (active) setError(err.message);
+      });
+    return () => { active = false; };
+  }, [joinCode]);
+
   // ── Officer helpers ──────────────────────────────────────────────────────────
 
   function addOfficer() {
-    setOfficers((o) => [...o, { role: "", name: "" }]);
+    setOfficers((o) => [...o, { role: "", customRole: "", name: "" }]);
   }
 
   function removeOfficer(i) {
@@ -105,7 +128,13 @@ export default function Setup() {
         orgType,
         memberCount: memberCount ? parseInt(memberCount, 10) : null,
         contactEmail: contactEmail.trim() || undefined,
-        officers: officers.filter((o) => o.name.trim()),
+        officers: officers
+          .filter((o) => o.name.trim())
+          .map((o) => ({
+            ...o,
+            role: o.role === CUSTOM_ROLE ? o.customRole.trim() : o.role,
+            customRole: undefined,
+          })),
         seedEvent: skipEvent ? null : {
           name: eventName.trim(),
           event_date: eventDate ? new Date(eventDate).toISOString() : null,
@@ -131,7 +160,7 @@ export default function Setup() {
     setError("");
     setSaving(true);
     try {
-      const { user } = await joinOrg(joinCode.trim());
+      const { user } = await joinOrg(joinCode.trim(), joinRole.trim());
       updateUser({ org: user.org, role: user.role });
       navigate("/pass-the-torch", { replace: true });
     } catch (err) {
@@ -184,6 +213,12 @@ export default function Setup() {
                 <span>Taking over from previous leadership? Their events, notes and documents carry over.</span>
               </button>
             </div>
+            <div className="setup-nav" style={{ marginTop: 18 }}>
+              <div style={{ flex: 1 }} />
+              <button type="button" className="btn btn-secondary" onClick={() => navigate("/login", { replace: true })}>
+                <ChevronLeft size={15} /> Back to sign in
+              </button>
+            </div>
           </div>
         )}
 
@@ -204,13 +239,28 @@ export default function Setup() {
                 autoFocus
               />
             </div>
+            <div className="setup-field">
+              <label className="setup-label">Organization role <span className="setup-req">*</span></label>
+              <select
+                className="select"
+                value={joinRole}
+                onChange={(e) => setJoinRole(e.target.value)}
+                disabled={saving || joinRoles.length === 0}
+              >
+                <option value="">{joinRoles.length ? "Select a configured role…" : "Enter a valid invite code first"}</option>
+                {joinRoles.map((role) => <option key={role} value={role}>{role}</option>)}
+              </select>
+              <span className="muted" style={{ display: "block", marginTop: 6, fontSize: "0.75rem" }}>
+                Roles are matched to the organization’s configured officer roles.
+              </span>
+            </div>
             {error && <p className="setup-error">{error}</p>}
             <div className="setup-nav">
               <button type="button" className="btn btn-secondary" onClick={() => { setMode(null); setError(""); }} disabled={saving}>
                 <ChevronLeft size={15} /> Back
               </button>
               <div style={{ flex: 1 }} />
-              <button type="submit" className="btn btn-primary" disabled={saving || joinCode.replace(/[^A-Z0-9]/gi, "").length < 8}>
+              <button type="submit" className="btn btn-primary" disabled={saving || joinCode.replace(/[^A-Z0-9]/gi, "").length < 8 || !joinRole.trim()}>
                 {saving ? "Joining…" : "Join organization"} <ChevronRight size={15} />
               </button>
             </div>
@@ -295,8 +345,21 @@ export default function Setup() {
                     onChange={(e) => updateOfficer(i, "role", e.target.value)}
                   >
                     <option value="">Select role…</option>
-                    {ROLE_OPTIONS.map((r) => <option key={r}>{r}</option>)}
+                    {ROLE_OPTIONS.map((r) => {
+                      const value = typeof r === "string" ? r : r.value;
+                      const label = typeof r === "string" ? r : r.label;
+                      return <option key={value} value={value}>{label}</option>;
+                    })}
                   </select>
+                  {o.role === CUSTOM_ROLE && (
+                    <input
+                      className="input setup-officer-custom-role"
+                      type="text"
+                      placeholder="Enter your role name"
+                      value={o.customRole || ""}
+                      onChange={(e) => updateOfficer(i, "customRole", e.target.value)}
+                    />
+                  )}
                   <input
                     className="input setup-officer-name"
                     type="text"

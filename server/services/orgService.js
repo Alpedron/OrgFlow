@@ -14,12 +14,29 @@ const db = require("./supabaseService");
 async function publicUser(user) {
   if (!user) return null;
   const org = user.org_id ? await db.getOrgById(user.org_id) : null;
+  const members = org ? await auth.listUsersByOrg(org.id) : [];
+  const currentMember = members.find((member) => member.id === user.id);
+  const isAdmin = Boolean(
+    currentMember?.is_admin ||
+    (org && org.created_by === user.id)
+  );
   return {
     id: user.id,
     email: user.email,
     name: user.name,
-    role: user.role || null,
-    org: org ? { ...org, configured: true } : null,
+    role: currentMember?.role || user.role || null,
+    isAdmin,
+    org: org ? {
+      ...org,
+      configured: true,
+      members: members.map((member) => ({
+        id: member.id,
+        name: member.name,
+        email: member.email,
+        role: member.role || "officer",
+        isAdmin: Boolean(member.is_admin || org.created_by === member.id),
+      })),
+    } : null,
   };
 }
 
@@ -31,7 +48,15 @@ async function requireOrg(req, res, next) {
     if (!user.org_id) {
       return res.status(403).json({ error: "Set up or join an organization first", code: "NO_ORG" });
     }
-    req.account = user;
+    const org = await db.getOrgById(user.org_id);
+    const member = org ? (await auth.listUsersByOrg(org.id)).find((item) => item.id === user.id) : null;
+    req.account = {
+      ...user,
+      role: member?.role || user.role || null,
+      name: user.name,
+      isAdmin: Boolean(member?.is_admin || (org && org.created_by === user.id)),
+    };
+    req.org = org;
     req.orgId = user.org_id;
     next();
   } catch (err) {

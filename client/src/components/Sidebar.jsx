@@ -39,6 +39,12 @@ const NAV_GROUPS = [
     ],
   },
   {
+    label: "Organization",
+    items: [
+      { to: "/organization", label: "Members & Roles", Icon: Settings },
+    ],
+  },
+  {
     label: "Handoff",
     items: [
       { to: "/pass-the-torch", label: "Pass the Torch", Icon: Flame },

@@ -1,9 +1,17 @@
 import { useState, useEffect } from "react";
-import { Trash2 } from "lucide-react";
+import { GripVertical, Trash2 } from "lucide-react";
 import { getTasks, updateTask, deleteTask, getEvents } from "../services/api.js";
 import TaskForm from "../components/TaskForm.jsx";
+import { useAuth } from "../context/AuthContext.jsx";
 
 const FILTERS = ["All", "Open", "Completed", "Due Soon"];
+const SORT_OPTIONS = [
+  { value: "manual", label: "Manual order" },
+  { value: "due_date", label: "Due date" },
+  { value: "priority", label: "Priority" },
+  { value: "status", label: "Status" },
+  { value: "created_at", label: "Created date" },
+];
 
 function daysUntil(date) {
   return Math.ceil((new Date(date) - new Date()) / (1000 * 60 * 60 * 24));
@@ -14,19 +22,34 @@ function formatDate(d) {
 }
 
 export default function Tasks() {
+  const { user } = useAuth();
   const [tasks, setTasks] = useState([]);
   const [events, setEvents] = useState([]);
   const [filter, setFilter] = useState("All");
+  const [roleFilter, setRoleFilter] = useState("All");
+  const [sortBy, setSortBy] = useState("manual");
+  const [sortOpen, setSortOpen] = useState(false);
+  const [draggedId, setDraggedId] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
   const [showForm, setShowForm] = useState(false);
 
   useEffect(() => {
-    Promise.all([getTasks(), getEvents()])
-      .then(([t, e]) => { setTasks(t); setEvents(e); })
+    Promise.all([getTasks(undefined, user?.isAdmin ? "all" : "role"), getEvents()])
+      .then(([t, e]) => {
+        const storedOrder = user?.org?.id
+          ? JSON.parse(localStorage.getItem(`orgflow-task-order-${user.org.id}`) || "[]")
+          : [];
+        const orderMap = new Map(storedOrder.map((id, index) => [id, index]));
+        const orderedTasks = [...t].sort((a, b) =>
+          (orderMap.get(a.id) ?? Number.MAX_SAFE_INTEGER) - (orderMap.get(b.id) ?? Number.MAX_SAFE_INTEGER)
+        );
+        setTasks(orderedTasks);
+        setEvents(e);
+      })
       .catch((err) => setError(err.message))
       .finally(() => setLoading(false));
-  }, []);
+  }, [user?.isAdmin, user?.org?.id]);
 
   const eventName = (id) => events.find((e) => e.id === id)?.name;
 
@@ -51,12 +74,45 @@ export default function Tasks() {
     }
   }
 
-  const filtered = tasks.filter((t) => {
-    if (filter === "All") return true;
-    if (filter === "Open") return t.status === "open";
-    if (filter === "Completed") return t.status === "completed";
-    if (filter === "Due Soon") return t.due_date && t.status === "open" && daysUntil(t.due_date) <= 14;
-    return true;
+  function persistManualOrder(nextTasks) {
+    setTasks(nextTasks);
+    if (user?.org?.id) {
+      localStorage.setItem(`orgflow-task-order-${user.org.id}`, JSON.stringify(nextTasks.map((task) => task.id)));
+    }
+  }
+
+  function handleDrop(targetId) {
+    if (!user?.isAdmin || !draggedId || draggedId === targetId) return;
+    const draggedIndex = tasks.findIndex((task) => task.id === draggedId);
+    const targetIndex = tasks.findIndex((task) => task.id === targetId);
+    if (draggedIndex < 0 || targetIndex < 0) return;
+    const next = [...tasks];
+    const [moved] = next.splice(draggedIndex, 1);
+    next.splice(targetIndex, 0, moved);
+    persistManualOrder(next);
+  }
+
+  const roleNames = Array.from(new Set((tasks.map((t) => t.assigned_to)).filter(Boolean)));
+  const filtered = tasks
+    .filter((t) => {
+      if (filter === "All") return true;
+      if (filter === "Open") return t.status === "open";
+      if (filter === "Completed") return t.status === "completed";
+      if (filter === "Due Soon") return t.due_date && t.status === "open" && daysUntil(t.due_date) <= 14;
+      return true;
+    })
+    .filter((t) => roleFilter === "All" || t.assigned_to === roleFilter);
+
+  const sorted = [...filtered].sort((a, b) => {
+    if (sortBy === "due_date") return new Date(a.due_date || "9999-12-31") - new Date(b.due_date || "9999-12-31");
+    if (sortBy === "priority") {
+      const priority = { high: 0, medium: 1, low: 2 };
+      return (priority[a.priority] ?? 3) - (priority[b.priority] ?? 3);
+    }
+    if (sortBy === "status") return String(a.status).localeCompare(String(b.status));
+    if (sortBy === "created_at") return new Date(b.created_at || 0) - new Date(a.created_at || 0);
+    const order = new Map(tasks.map((task, index) => [task.id, index]));
+    return (order.get(a.id) ?? 0) - (order.get(b.id) ?? 0);
   });
 
   return (
@@ -69,7 +125,10 @@ export default function Tasks() {
             Assign and track work across all your events.
           </p>
         </div>
-        <button className="btn btn-primary" onClick={() => setShowForm(true)}>+ New Task</button>
+        <div style={{ display: "flex", gap: 8 }}>
+          {!user?.isAdmin && <span className="badge badge-neutral">Read-only view</span>}
+          {user?.isAdmin && <button className="btn btn-primary" onClick={() => setShowForm(true)}>+ New Task</button>}
+        </div>
       </div>
 
       {/* Filter strip */}
@@ -93,6 +152,39 @@ export default function Tasks() {
             {f}
           </button>
         ))}
+        <select
+          className="select btn-sm"
+          value={roleFilter}
+          onChange={(e) => setRoleFilter(e.target.value)}
+          aria-label="Filter tasks by assigned role"
+          style={{ maxWidth: 180 }}
+        >
+          <option value="All">All roles</option>
+          {roleNames.map((role) => <option key={role} value={role}>{role}</option>)}
+        </select>
+        <div style={{ position: "relative" }}>
+          <button
+            className={`btn btn-sm ${sortBy !== "manual" ? "btn-primary" : "btn-secondary"}`}
+            onClick={() => setSortOpen((open) => !open)}
+            aria-expanded={sortOpen}
+          >
+            Sort: {SORT_OPTIONS.find((option) => option.value === sortBy)?.label || "Manual order"}
+          </button>
+          {sortOpen && (
+            <div className="card" style={{ position: "absolute", zIndex: 5, top: "calc(100% + 8px)", right: 0, minWidth: 180, padding: 8 }}>
+              {SORT_OPTIONS.map((option) => (
+                <button
+                  key={option.value}
+                  className={`btn btn-sm ${sortBy === option.value ? "btn-primary" : "btn-secondary"}`}
+                  style={{ display: "block", width: "100%", textAlign: "left", marginBottom: 4 }}
+                  onClick={() => { setSortBy(option.value); setSortOpen(false); }}
+                >
+                  {option.label}
+                </button>
+              ))}
+            </div>
+          )}
+        </div>
         <span className="muted" style={{ marginLeft: "auto", fontSize: "0.8rem", alignSelf: "center" }}>
           {filtered.length} task{filtered.length !== 1 ? "s" : ""}
         </span>
@@ -110,28 +202,38 @@ export default function Tasks() {
         {!loading && tasks.length > 0 && filtered.length === 0 && (
           <p className="muted" style={{ padding: "20px 0" }}>No tasks match this filter.</p>
         )}
-        {filtered.map((task) => (
+        {sorted.map((task) => (
           <div
             key={task.id}
+            draggable={user?.isAdmin}
+            onDragStart={() => setDraggedId(task.id)}
+            onDragOver={(e) => e.preventDefault()}
+            onDrop={() => handleDrop(task.id)}
+            onDragEnd={() => setDraggedId(null)}
             className="card"
             style={{
               display: "grid",
-              gridTemplateColumns: "28px 1fr auto auto auto auto",
+              gridTemplateColumns: "20px 28px 1fr auto auto auto auto",
               alignItems: "center",
               gap: 12,
               padding: "12px 16px",
               transition: "box-shadow 0.12s",
               opacity: task.status === "completed" ? 0.72 : 1,
+              cursor: user?.isAdmin ? "grab" : "default",
             }}
             onMouseEnter={e => e.currentTarget.style.boxShadow = "var(--shadow-md)"}
             onMouseLeave={e => e.currentTarget.style.boxShadow = ""}
           >
-            <input
-              type="checkbox"
-              checked={task.status === "completed"}
-              onChange={() => toggleStatus(task)}
-              style={{ width: 16, height: 16, cursor: "pointer", accentColor: "var(--color-accent)" }}
-            />
+            {user?.isAdmin && <GripVertical size={15} className="muted" />}
+
+            {user?.isAdmin ? (
+              <input
+                type="checkbox"
+                checked={task.status === "completed"}
+                onChange={() => toggleStatus(task)}
+                style={{ width: 16, height: 16, cursor: "pointer", accentColor: "var(--color-accent)" }}
+              />
+            ) : <span className="muted">•</span>}
             <div>
               <span style={{
                 fontWeight: 600,
@@ -150,9 +252,11 @@ export default function Tasks() {
             </span>
             <span className={`badge badge-${task.priority}`}>{task.priority}</span>
             <span className={`badge badge-${task.status}`}>{task.status}</span>
-            <button className="icon-btn" title="Delete task" onClick={() => handleDelete(task)}>
-              <Trash2 size={14} />
-            </button>
+            {user?.isAdmin && (
+              <button className="icon-btn" title="Delete task" onClick={() => handleDelete(task)}>
+                <Trash2 size={14} />
+              </button>
+            )}
           </div>
         ))}
       </div>

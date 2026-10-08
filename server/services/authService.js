@@ -129,10 +129,29 @@ async function setUserOrg(userId, orgId, role = "officer") {
   return fromRow(data);
 }
 
+async function updateUserRole(userId, role, isAdmin = false) {
+  if (USE_MOCK) {
+    const user = usersStore.find((u) => u.id === userId);
+    if (!user) throw new Error("User not found");
+    user.role = String(role || "officer").trim();
+    user.is_admin = Boolean(isAdmin);
+    saveStore(usersStore);
+    return user;
+  }
+  const { data, error } = await db()
+    .from("profiles")
+    .update({ role: String(role || "officer").trim(), is_admin: Boolean(isAdmin) })
+    .eq("id", userId)
+    .select()
+    .single();
+  if (error) throw error;
+  return fromRow(data);
+}
+
 async function listUsersByOrg(orgId) {
   if (USE_MOCK) return usersStore.filter((u) => u.org_id === orgId);
   const { data, error } = await db()
-    .from("profiles").select("id, email, name, role, created_at").eq("org_id", orgId).order("created_at");
+    .from("profiles").select("id, email, name, role, is_admin, created_at").eq("org_id", orgId).order("created_at");
   if (error) throw error;
   return data;
 }
@@ -149,6 +168,7 @@ module.exports = {
   getUserByEmail,
   getUserById,
   setUserOrg,
+  updateUserRole,
   listUsersByOrg,
   usersWithLegacyOrg,
 };
