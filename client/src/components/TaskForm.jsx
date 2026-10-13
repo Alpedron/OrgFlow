@@ -12,11 +12,19 @@ export default function TaskForm({ events = [], defaultEventId = "", onClose, on
   const organizationRoles = Array.from(new Map(
     (user?.org?.members || []).map((member) => [member.role, member.role])
   ).values());
+  const assignmentRoles = user?.isAdmin
+    ? organizationRoles
+    : Array.from(new Set([
+        user?.role,
+        user?.name,
+        "President",
+        "Secretary",
+      ].filter(Boolean)));
   const [form, setForm] = useState({
     title: "",
     event_id: defaultEventId,
     category: "",
-    assigned_to: "",
+    assigned_to: user?.role || "",
     custom_role: "",
     due_date: "",
     priority: "medium",
@@ -31,6 +39,10 @@ export default function TaskForm({ events = [], defaultEventId = "", onClose, on
     setError("");
     if (!form.title.trim()) {
       setError("Please give the task a title.");
+      return;
+    }
+    if (!user?.isAdmin && form.assigned_to && ![user?.role, user?.name, "President", "Secretary"].includes(form.assigned_to)) {
+      setError("You can assign this task only to yourself, the President, or the Secretary.");
       return;
     }
     setSaving(true);
@@ -93,8 +105,8 @@ export default function TaskForm({ events = [], defaultEventId = "", onClose, on
             <span className="form-label">Assigned to</span>
             <select className="select" value={form.assigned_to} onChange={set("assigned_to")}>
               <option value="">Everyone / unassigned</option>
-              {organizationRoles.map((role) => <option key={role} value={role}>{role}</option>)}
-              <option value={CUSTOM_ROLE}>Custom role…</option>
+              {assignmentRoles.map((role) => <option key={role} value={role}>{role}</option>)}
+              {user?.isAdmin && <option value={CUSTOM_ROLE}>Custom role…</option>}
             </select>
             {form.assigned_to === CUSTOM_ROLE && (
               <input

@@ -8,6 +8,21 @@ function canManageTasks(req) {
   return Boolean(req.account?.isAdmin || req.org?.created_by === req.account?.id);
 }
 
+function canCreateTasks(req) {
+  return Boolean(req.orgId && req.account);
+}
+
+function validateSelfAssignment(req, assignedTo) {
+  if (req.account?.isAdmin || !assignedTo) return true;
+  const normalizedAssignedTo = String(assignedTo).trim().toLowerCase();
+  const normalizedCurrentName = String(req.account.name || "").trim().toLowerCase();
+  const normalizedCurrentRole = String(req.account.role || "").trim().toLowerCase();
+  const allowedRoles = new Set(["president", "secretary"]);
+  return normalizedAssignedTo === normalizedCurrentName
+    || normalizedAssignedTo === normalizedCurrentRole
+    || allowedRoles.has(normalizedAssignedTo);
+}
+
 // GET /api/tasks?event_id=...
 router.get("/", async (req, res, next) => {
   try {
@@ -32,7 +47,10 @@ router.post("/", async (req, res, next) => {
     if (!req.body.title || !String(req.body.title).trim()) {
       return res.status(400).json({ error: "Task title is required" });
     }
-    if (!canManageTasks(req)) return res.status(403).json({ error: "Only organization admins can assign tasks" });
+    if (!canCreateTasks(req)) return res.status(403).json({ error: "You must belong to an organization to create tasks" });
+    if (!validateSelfAssignment(req, req.body.assigned_to)) {
+      return res.status(403).json({ error: "Only organization admins can assign tasks to other roles" });
+    }
     const task = await db.createTask(req.orgId, req.body);
     res.status(201).json(task);
   } catch (err) {
@@ -43,10 +61,14 @@ router.post("/", async (req, res, next) => {
 // POST /api/tasks/bulk  — Body: { tasks: [...], event_id? }
 router.post("/bulk", async (req, res, next) => {
   try {
-    if (!canManageTasks(req)) return res.status(403).json({ error: "Only organization admins can assign tasks" });
+    if (!canCreateTasks(req)) return res.status(403).json({ error: "You must belong to an organization to create tasks" });
     const list = Array.isArray(req.body.tasks) ? req.body.tasks : [];
     const valid = list.filter((t) => t && t.title && String(t.title).trim());
     if (valid.length === 0) return res.status(400).json({ error: "No tasks to add" });
+    const invalidAssignment = valid.find((task) => !validateSelfAssignment(req, task.assigned_to));
+    if (invalidAssignment) {
+      return res.status(403).json({ error: "Only organization admins can assign tasks to other roles" });
+    }
     const created = [];
     for (const t of valid.slice(0, 50)) {
       created.push(await db.createTask(req.orgId, { ...t, event_id: req.body.event_id || t.event_id }));

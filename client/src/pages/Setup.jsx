@@ -10,7 +10,7 @@ const ORG_TYPES = ["Student Government", "Club", "Academic Association", "Other"
 const CUSTOM_ROLE = "__custom__";
 
 const ROLE_OPTIONS = [
-  "President", "Vice President", "Secretary", "Treasurer",
+  "President", "Vice President", "Secretary", "Treasurer", "Community Service Officer",
   "Events Coordinator", "Public Relations Officer", "Liaison", "General Member",
   { value: CUSTOM_ROLE, label: "Custom role…" },
 ];

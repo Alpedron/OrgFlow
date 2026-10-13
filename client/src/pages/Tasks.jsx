@@ -126,8 +126,7 @@ export default function Tasks() {
           </p>
         </div>
         <div style={{ display: "flex", gap: 8 }}>
-          {!user?.isAdmin && <span className="badge badge-neutral">Read-only view</span>}
-          {user?.isAdmin && <button className="btn btn-primary" onClick={() => setShowForm(true)}>+ New Task</button>}
+          <button className="btn btn-primary" onClick={() => setShowForm(true)}>+ New Task</button>
         </div>
       </div>
 

@@ -12,16 +12,21 @@ const db = require("../services/supabaseService");
 
 const router = Router();
 
-// POST /api/setup/join-roles — return the roles configured for an invite code
+const OFFICER_ROLES = [
+  "President", "Vice President", "Secretary", "Treasurer",
+  "Events Coordinator", "Public Relations Officer", "Liaison", "General Member",
+];
+
+// POST /api/setup/join-roles — return the same built-in roles used during signup,
+// plus any custom roles configured by the organization.
 router.post("/join-roles", requireAuth, async (req, res, next) => {
   try {
     const org = await db.getOrgByJoinCode(req.body.joinCode);
     if (!org) return res.status(404).json({ error: "No organization has that invite code. Check it and try again." });
-    const roles = Array.from(new Set(
-      (org.officers || [])
-        .map((officer) => String(officer.role || "").trim())
-        .filter(Boolean)
-    ));
+    const configuredRoles = (org.officers || [])
+      .map((officer) => String(officer.role || "").trim())
+      .filter(Boolean);
+    const roles = Array.from(new Set([...OFFICER_ROLES, ...configuredRoles]));
     res.json({ roles });
   } catch (err) {
     next(err);
@@ -39,7 +44,10 @@ router.post("/", requireAuth, async (req, res, next) => {
       const org = await db.getOrgByJoinCode(req.body.joinCode);
       if (!org) return res.status(404).json({ error: "No organization has that invite code. Check it and try again." });
       const role = String(req.body.role || "officer").trim();
-      const configuredRoles = new Set((org.officers || []).map((officer) => String(officer.role || "").trim()).filter(Boolean));
+      const configuredRoles = new Set([
+        ...OFFICER_ROLES,
+        ...(org.officers || []).map((officer) => String(officer.role || "").trim()).filter(Boolean),
+      ]);
       if (!configuredRoles.has(role)) {
         return res.status(400).json({ error: "Choose a role configured by this organization." });
       }
