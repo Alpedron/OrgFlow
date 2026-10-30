@@ -1,48 +1,283 @@
+import { useEffect, useState } from "react";
 import { Link } from "react-router-dom";
-import { ArrowRight, CalendarDays, CheckSquare, GraduationCap, ShieldCheck, Sparkles, Users } from "lucide-react";
+import {
+  ArrowRight,
+  ArrowUpRight,
+  CalendarDays,
+  ChevronDown,
+  Clock3,
+  Menu,
+  Sparkles,
+  Users,
+  X,
+} from "lucide-react";
+import "./Landing.css";
+import { getPublicLanding } from "../services/api.js";
 
-const FEATURES = [
-  { Icon: CalendarDays, title: "Plan every event", text: "Keep schedules, decisions, and next steps in one shared organization workspace." },
-  { Icon: CheckSquare, title: "Assign work by role", text: "Choose an officer role or a custom role, then filter task visibility with confidence." },
-  { Icon: ShieldCheck, title: "Manage ownership", text: "Give admins the right to manage roles while keeping regular members in a safe read-only view." },
-  { Icon: Users, title: "Pass the torch", text: "Preserve institutional knowledge so future officers can inherit the work without starting over." },
+const EVENTS = [
+  {
+    label: "Featured",
+    date: "May 03",
+    title: "OrgFlow Spring Summit",
+    meta: "11:00 AM–4:00 PM · Student Center",
+    image:
+      "https://images.unsplash.com/photo-1523240795612-9a054b0db644?auto=format&fit=crop&w=1200&q=80",
+  },
+  {
+    label: "This week",
+    date: "May 09",
+    title: "Student Leaders Forum",
+    meta: "3:30–5:00 PM · Library Commons",
+    image:
+      "https://images.unsplash.com/photo-1529390079861-591de354faf5?auto=format&fit=crop&w=1200&q=80",
+  },
 ];
 
+const FEATURES = [
+  { Icon: CalendarDays, title: "Bring plans together", text: "Keep meetings, events, and deadlines visible to the people who make them happen." },
+  { Icon: Users, title: "Connect your community", text: "Give every club and organization one welcoming place to share what is happening." },
+  { Icon: Sparkles, title: "Build what lasts", text: "Capture the knowledge behind the work so every new team can start with momentum." },
+];
+
+function formatEventDate(value) {
+  if (!value) return "";
+  return new Date(value).toLocaleDateString("en-US", { month: "short", day: "numeric" });
+}
+
+function publicEventCard(event) {
+  return {
+    label: event.organization_name || "Organization",
+    date: formatEventDate(event.event_date) || event.date,
+    title: event.name || event.title,
+    meta: [event.event_date && new Date(event.event_date).toLocaleTimeString("en-US", { hour: "numeric", minute: "2-digit" }), event.location]
+      .filter(Boolean)
+      .join(" · ") || event.meta,
+    image: event.image || event.image_url || "",
+  };
+}
+
 export default function Landing() {
+  const [menuOpen, setMenuOpen] = useState(false);
+  const [content, setContent] = useState(null);
+  const [selectedPoster, setSelectedPoster] = useState(null);
+
+  function closeMenu() {
+    setMenuOpen(false);
+  }
+
+  useEffect(() => {
+    getPublicLanding().then((data) => {
+      const saved = data.content || data;
+      setContent({
+        ...saved,
+        events: Array.isArray(saved.events) && saved.events.length ? saved.events : EVENTS,
+        organizationEvents: (data.events || []).map(publicEventCard),
+      });
+    }).catch(() => {
+      // The local defaults keep the public page useful while the API is unavailable.
+    });
+  }, []);
+
+  useEffect(() => {
+    if (!selectedPoster) return undefined;
+    const closeOnEscape = (event) => {
+      if (event.key === "Escape") setSelectedPoster(null);
+    };
+    document.addEventListener("keydown", closeOnEscape);
+    return () => document.removeEventListener("keydown", closeOnEscape);
+  }, [selectedPoster]);
+
+  const landingContent = content || {
+    eyebrow: "What's happening with student organizations",
+    kicker: "Oakland Community College",
+    headline: "November events",
+    description: "Stay in the loop with organization announcements, campus events, volunteer opportunities, and everything in between.",
+    events: EVENTS,
+    organizationEvents: [],
+  };
+
   return (
-    <main style={{ minHeight: "100vh", background: "linear-gradient(180deg, #f7f8fc 0%, #fff 100%)", color: "var(--color-text)" }}>
-      <nav style={{ maxWidth: 1180, margin: "0 auto", padding: "22px 28px", display: "flex", alignItems: "center", justifyContent: "space-between" }}>
-        <div style={{ display: "flex", alignItems: "center", gap: 10, fontWeight: 700 }}><span style={{ width: 34, height: 34, borderRadius: 10, display: "grid", placeItems: "center", color: "white", background: "var(--color-accent)" }}><GraduationCap size={18} /></span>OrgFlow</div>
-        <div style={{ display: "flex", gap: 10 }}><Link className="btn btn-secondary" to="/login">Sign in</Link><Link className="btn btn-primary" to="/login?mode=register">Start free <ArrowRight size={14} /></Link></div>
-      </nav>
+    <main className="landing">
+      <header className="landing-header">
+        <Link className="landing-brand" to="/" onClick={closeMenu} aria-label="OrgFlow home">
+          <span className="landing-brand-mark" aria-hidden="true">SG</span>
+          <span>
+            <strong>OrgFlow</strong>
+            <small>CONNECT · ENGAGE · BELONG</small>
+          </span>
+        </Link>
 
-      <section style={{ maxWidth: 1180, margin: "0 auto", padding: "72px 28px 86px", display: "grid", gridTemplateColumns: "1.05fr .95fr", gap: 64, alignItems: "center" }}>
-        <div>
-          <div style={{ display: "inline-flex", alignItems: "center", gap: 6, padding: "6px 10px", borderRadius: 99, background: "var(--color-accent-soft)", color: "var(--color-accent-dark)", fontSize: "0.78rem", fontWeight: 700 }}><Sparkles size={13} /> Built for student organizations</div>
-          <h1 style={{ fontSize: "clamp(2.5rem, 5vw, 4.6rem)", lineHeight: 1.02, letterSpacing: "-0.05em", margin: "22px 0 20px" }}>Keep your organization moving <span style={{ color: "var(--color-accent)" }}>forward.</span></h1>
-          <p style={{ maxWidth: 620, fontSize: "1.05rem", lineHeight: 1.7, color: "var(--color-muted)" }}>OrgFlow brings events, tasks, roles, resources, and institutional knowledge into one clear workspace built for student leaders.</p>
-          <div style={{ display: "flex", gap: 12, marginTop: 30 }}><Link className="btn btn-primary" to="/login?mode=register">Create your organization <ArrowRight size={14} /></Link><Link className="btn btn-secondary" to="/login">Sign in to your workspace</Link></div>
-          <p style={{ marginTop: 16, color: "var(--color-muted)", fontSize: "0.78rem" }}>No credit card required · Setup in minutes</p>
+        <button
+          className="landing-menu-toggle"
+          type="button"
+          onClick={() => setMenuOpen((open) => !open)}
+          aria-expanded={menuOpen}
+          aria-label={menuOpen ? "Close navigation" : "Open navigation"}
+        >
+          {menuOpen ? <X size={22} /> : <Menu size={22} />}
+        </button>
+
+        <nav className={`landing-nav ${menuOpen ? "is-open" : ""}`} aria-label="Main navigation">
+          <a href="#announcements" onClick={closeMenu}>Announcements</a>
+          <a href="#events" onClick={closeMenu}>Events</a>
+          <Link to="/past-events" onClick={closeMenu}>Past events</Link>
+          <a href="#organizations" onClick={closeMenu} className="landing-nav-dropdown">
+            Orgs / Clubs <ChevronDown size={14} />
+          </a>
+          <a href="#about" onClick={closeMenu}>About us</a>
+          <Link className="landing-login-link" to="/login" onClick={closeMenu}>Log in to OrgFlow</Link>
+        </nav>
+      </header>
+
+      <section className="landing-hero" id="announcements">
+        <div className="landing-hero-copy">
+          <div className="landing-eyebrow">{landingContent.eyebrow}</div>
+          <p className="landing-kicker">{landingContent.kicker}</p>
+          <h1>{landingContent.headline}</h1>
+          <p className="landing-hero-description">
+            {landingContent.description}
+          </p>
+          <a className="landing-yellow-button" href="#events">
+            See what&apos;s coming up <ArrowRight size={17} />
+          </a>
         </div>
 
-        <div style={{ background: "#fff", border: "1px solid var(--color-border-light)", borderRadius: 22, boxShadow: "var(--shadow-md)", padding: 18, transform: "rotate(1deg)" }}>
-          <div style={{ padding: "20px", borderRadius: 16, background: "#f8f9fd" }}>
-            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 16 }}><div><strong>Campus Council</strong><div className="muted" style={{ fontSize: "0.76rem", marginTop: 3 }}>Spring event planning</div></div><span className="badge badge-success">On track</span></div>
-            <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10 }}>
-              <div style={{ background: "#fff", border: "1px solid var(--color-border-light)", borderRadius: 12, padding: 15 }}><div className="muted" style={{ fontSize: "0.72rem" }}>Open tasks</div><strong style={{ display: "block", fontSize: "1.45rem", marginTop: 8 }}>12</strong><div style={{ color: "var(--color-accent)", fontSize: "0.72rem", marginTop: 5 }}>4 due this week</div></div>
-              <div style={{ background: "#fff", border: "1px solid var(--color-border-light)", borderRadius: 12, padding: 15 }}><div className="muted" style={{ fontSize: "0.72rem" }}>Leadership roles</div><strong style={{ display: "block", fontSize: "1.45rem", marginTop: 8 }}>8</strong><div style={{ color: "var(--color-success)", fontSize: "0.72rem", marginTop: 5 }}>All assigned</div></div>
+        <div className="landing-event-track" id="events">
+          {landingContent.events.map((event, index) => (
+            <article className="landing-event-card" key={`${event.title}-${index}`}>
+              <button
+                type="button"
+                className="landing-event-poster"
+                onClick={() => event.image && setSelectedPoster(event)}
+                disabled={!event.image}
+                aria-label={event.image ? `View full poster for ${event.title}` : undefined}
+              >
+                <div
+                  className="landing-event-image"
+                  style={{ backgroundImage: `url("${event.image}")` }}
+                >
+                <span className="landing-event-pill">{event.label}</span>
+                <span className="landing-event-date">{event.date}</span>
+                <div className="landing-event-overlay">
+                  <p>Campus event</p>
+                  <h2>{event.title}</h2>
+                </div>
+                </div>
+              </button>
+              <div className="landing-event-meta">
+                <Clock3 size={16} />
+                <span>{event.meta}</span>
+              </div>
+            </article>
+          ))}
+        </div>
+      </section>
+
+      {landingContent.organizationEvents.length > 0 && (
+        <section className="landing-org-events" aria-labelledby="org-events-heading">
+          <div className="landing-section-heading">
+            <div>
+              <p className="landing-kicker">From student organizations/clubs</p>
+              <h2 id="org-events-heading">What&apos;s coming up across campus.</h2>
             </div>
-            <div style={{ marginTop: 10, background: "#fff", border: "1px solid var(--color-border-light)", borderRadius: 12, padding: 15 }}><div style={{ display: "flex", justifyContent: "space-between", fontSize: "0.75rem", marginBottom: 10 }}><span>Event readiness</span><strong>82%</strong></div><div style={{ height: 7, background: "var(--color-border-light)", borderRadius: 99, overflow: "hidden" }}><div style={{ width: "82%", height: "100%", background: "var(--color-accent)", borderRadius: 99 }} /></div></div>
+            <span className="landing-org-events-note">Approved organization listings</span>
           </div>
+          <div className="landing-org-events-grid">
+            {landingContent.organizationEvents.map((event, index) => (
+              <article className="landing-event-card" key={`${event.title}-${index}`}>
+                <button
+                  type="button"
+                  className="landing-event-poster"
+                  onClick={() => event.image && setSelectedPoster(event)}
+                  disabled={!event.image}
+                  aria-label={event.image ? `View full poster for ${event.title}` : undefined}
+                >
+                  <div
+                    className="landing-event-image"
+                    style={{ backgroundImage: event.image ? `url("${event.image}")` : undefined }}
+                  >
+                  <span className="landing-event-pill">{event.label}</span>
+                  <span className="landing-event-date">{event.date}</span>
+                  <div className="landing-event-overlay">
+                    <p>Campus event</p>
+                    <h2>{event.title}</h2>
+                  </div>
+                  </div>
+                </button>
+                <div className="landing-event-meta">
+                  <Clock3 size={16} />
+                  <span>{event.meta}</span>
+                </div>
+              </article>
+            ))}
+          </div>
+          <div className="landing-past-events-link">
+            <Link to="/past-events">
+              View past organization events <ArrowRight size={16} />
+            </Link>
+          </div>
+        </section>
+      )}
+
+      {selectedPoster && (
+        <div
+          className="landing-poster-modal"
+          role="dialog"
+          aria-modal="true"
+          aria-label={`Full poster for ${selectedPoster.title}`}
+          onMouseDown={(event) => event.target === event.currentTarget && setSelectedPoster(null)}
+        >
+          <button
+            type="button"
+            className="landing-poster-close"
+            onClick={() => setSelectedPoster(null)}
+            aria-label="Close poster"
+          >
+            <X size={24} />
+          </button>
+          <img src={selectedPoster.image} alt={`Full poster for ${selectedPoster.title}`} />
+        </div>
+      )}
+
+      <section className="landing-announcements" id="organizations">
+        <div className="landing-section-heading">
+          <div>
+            <p className="landing-kicker">Around the community</p>
+            <h2>There&apos;s always something to be part of.</h2>
+          </div>
+          <a href="#about">Explore OrgFlow <ArrowUpRight size={17} /></a>
+        </div>
+        <div className="landing-feature-grid">
+          {FEATURES.map(({ Icon, title, text }) => (
+            <article className="landing-feature" key={title}>
+              <span className="landing-feature-icon"><Icon size={21} /></span>
+              <h3>{title}</h3>
+              <p>{text}</p>
+            </article>
+          ))}
         </div>
       </section>
 
-      <section style={{ maxWidth: 1180, margin: "0 auto", padding: "0 28px 90px" }}>
-        <h2 style={{ textAlign: "center", fontSize: "1.65rem", margin: "0 0 30px" }}>Built for the whole organization, not just one meeting.</h2>
-        <div style={{ display: "grid", gridTemplateColumns: "repeat(4, 1fr)", gap: 16 }}>
-          {FEATURES.map(({ Icon, title, text }) => <article key={title} className="card" style={{ padding: 22 }}><span style={{ width: 38, height: 38, borderRadius: 10, display: "grid", placeItems: "center", color: "var(--color-accent)", background: "var(--color-accent-soft)" }}><Icon size={18} /></span><h3 style={{ fontSize: "1rem", margin: "16px 0 7px" }}>{title}</h3><p className="muted" style={{ fontSize: "0.82rem", lineHeight: 1.55 }}>{text}</p></article>)}
+      <section className="landing-about" id="about">
+        <div>
+          <p className="landing-kicker">About OrgFlow</p>
+          <h2>The front door to a more connected campus.</h2>
         </div>
+        <p>
+          OrgFlow helps student organizations move from scattered messages to
+          shared momentum. Discover what&apos;s happening, find your people, and
+          use the workspace to keep your organization moving forward.
+        </p>
+        <Link className="landing-outline-button" to="/login?mode=register">
+          Start your organization <ArrowRight size={16} />
+        </Link>
       </section>
+
+      <footer className="landing-footer">
+        <span>© {new Date().getFullYear()} OrgFlow</span>
+        <span>Built for the people who make campus happen.</span>
+        <Link to="/login">Log in</Link>
+      </footer>
     </main>
   );
 }

@@ -15,6 +15,7 @@ const { randomUUID } = require("crypto");
 
 const USE_MOCK = process.env.USE_MOCK !== "false";
 const JWT_SECRET = process.env.JWT_SECRET || "orgflow-dev";
+const WEBSITE_ADMIN_EMAIL = String(process.env.WEBSITE_ADMIN_EMAIL || "adriannapedron.dev@gmail.com").trim().toLowerCase();
 
 // ── File-backed user store (mock mode — survives server restarts) ─────────────
 
@@ -64,6 +65,10 @@ function fromRow(row) {
   return { ...rest, passwordHash: password_hash };
 }
 
+function isWebsiteAdmin(user) {
+  return Boolean(user?.is_website_admin || String(user?.email || "").toLowerCase() === WEBSITE_ADMIN_EMAIL);
+}
+
 function db() {
   return require("./supabaseService").getClient();
 }
@@ -78,6 +83,7 @@ async function createUser({ email, passwordHash, name }) {
       name: name || email.split("@")[0],
       org: null,
       created_at: new Date().toISOString(),
+      is_website_admin: normalizeEmail(email) === WEBSITE_ADMIN_EMAIL,
     };
     usersStore.push(user);
     saveStore(usersStore);
@@ -86,7 +92,7 @@ async function createUser({ email, passwordHash, name }) {
 
   const { data, error } = await db()
     .from("profiles")
-    .insert({ id: randomUUID(), email, name: name || email.split("@")[0], password_hash: passwordHash })
+    .insert({ id: randomUUID(), email, name: name || email.split("@")[0], password_hash: passwordHash, is_website_admin: email === WEBSITE_ADMIN_EMAIL })
     .select()
     .single();
   if (error) throw error;
@@ -151,7 +157,7 @@ async function updateUserRole(userId, role, isAdmin = false) {
 async function listUsersByOrg(orgId) {
   if (USE_MOCK) return usersStore.filter((u) => u.org_id === orgId);
   const { data, error } = await db()
-    .from("profiles").select("id, email, name, role, is_admin, created_at").eq("org_id", orgId).order("created_at");
+    .from("profiles").select("id, email, name, role, is_admin, is_website_admin, created_at").eq("org_id", orgId).order("created_at");
   if (error) throw error;
   return data;
 }
@@ -171,4 +177,5 @@ module.exports = {
   updateUserRole,
   listUsersByOrg,
   usersWithLegacyOrg,
+  isWebsiteAdmin,
 };

@@ -193,6 +193,23 @@ The Vite dev server proxies `/api/*` requests to `http://localhost:3001`, so no 
 
 Visit **http://localhost:5173** in your browser.
 
+## OrgFlow permissions
+
+OrgFlow has three separate permission levels:
+
+- **Website administrator** — manages the global public website and approves
+  organization events for publication. Set the initial account with
+  `WEBSITE_ADMIN_EMAIL` in `server/.env`.
+- **Organization administrator** — manages members and event listings for their
+  own organization only. The organization creator is an administrator by
+  default, and existing admins can promote members from Members & Roles.
+- **Organization member** — can view their organization's workspace and event
+  listings, but cannot create, edit, delete, or publish events.
+
+New organization events start as `pending` and private. A website administrator
+approves them from the Website page before they appear on the public landing
+page.
+
 ---
 
 ## Environment Variables
@@ -260,9 +277,16 @@ CREATE TABLE organizations (
   "memberCount"   integer,
   "contactEmail"  text,
   officers        jsonb DEFAULT '[]',
+  landing_content jsonb DEFAULT '{}'::jsonb,
   join_code       text UNIQUE NOT NULL,
   created_by      uuid,
   created_at      timestamptz DEFAULT now()
+);
+
+-- global public website content, managed by website administrators
+CREATE TABLE site_settings (
+  id              text PRIMARY KEY,
+  landing_content jsonb DEFAULT '{}'::jsonb
 );
 
 -- accounts (passwords are bcrypt hashes; login tokens are signed by the server)
@@ -273,6 +297,8 @@ CREATE TABLE profiles (
   password_hash   text NOT NULL,
   org_id          uuid REFERENCES organizations(id),
   role            text,
+  is_admin        boolean DEFAULT false,
+  is_website_admin boolean DEFAULT false,
   created_at      timestamptz DEFAULT now()
 );
 
@@ -287,7 +313,10 @@ CREATE TABLE events (
   expected_attendance integer,
   budget          numeric,
   status          text DEFAULT 'planning',
-  created_at      timestamptz DEFAULT now()
+ image           text,
+ approval_status text DEFAULT 'pending',
+ is_public       boolean DEFAULT false,
+ created_at      timestamptz DEFAULT now()
 );
 
 -- tasks
@@ -345,6 +374,28 @@ CREATE TABLE event_reports (
   recommendations     text,
   recorded_by         text,
   created_at          timestamptz DEFAULT now()
+);
+```
+
+If you already created the `organizations` table before website editing was
+added, run this once in Supabase:
+
+```sql
+ALTER TABLE organizations
+ ADD COLUMN IF NOT EXISTS landing_content jsonb DEFAULT '{}'::jsonb;
+
+ALTER TABLE profiles
+ ADD COLUMN IF NOT EXISTS is_admin boolean DEFAULT false,
+ ADD COLUMN IF NOT EXISTS is_website_admin boolean DEFAULT false;
+
+ALTER TABLE events
+ ADD COLUMN IF NOT EXISTS image text,
+ ADD COLUMN IF NOT EXISTS approval_status text DEFAULT 'pending',
+ ADD COLUMN IF NOT EXISTS is_public boolean DEFAULT false;
+
+CREATE TABLE IF NOT EXISTS site_settings (
+ id text PRIMARY KEY,
+ landing_content jsonb DEFAULT '{}'::jsonb
 );
 ```
 

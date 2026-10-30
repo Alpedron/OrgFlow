@@ -2,6 +2,7 @@ import { useState, useEffect } from "react";
 import { Pencil, Trash2, ClipboardCheck } from "lucide-react";
 import { useSearchParams } from "react-router-dom";
 import { getEvents, deleteEvent } from "../services/api.js";
+import { useAuth } from "../context/AuthContext.jsx";
 import EventForm from "../components/EventForm.jsx";
 import WrapUpForm from "../components/WrapUpForm.jsx";
 
@@ -19,6 +20,8 @@ export default function Events() {
   // null = closed, {} = new, event = edit. "?new=1" opens the new-event form.
   const [editing, setEditing] = useState(searchParams.get("new") ? {} : null);
   const [wrapping, setWrapping] = useState(null);
+  const { user } = useAuth();
+  const canManage = Boolean(user?.isAdmin);
 
   useEffect(() => {
     getEvents()
@@ -62,7 +65,7 @@ export default function Events() {
             Plan, track, and wrap up your organization's events.
           </p>
         </div>
-        <button className="btn btn-primary" onClick={() => setEditing({})}>+ New Event</button>
+        {canManage && <button className="btn btn-primary" onClick={() => setEditing({})}>+ New Event</button>}
       </div>
 
       <div style={{ marginBottom: 20, borderBottom: "1px solid var(--color-border-light)", paddingBottom: 20 }} />
@@ -73,7 +76,7 @@ export default function Events() {
       {!loading && !error && events.length === 0 && (
         <div className="empty-box">
           <p>No events yet. Create your first one to start planning.</p>
-          <button className="btn btn-primary btn-sm" onClick={() => setEditing({})}>+ New Event</button>
+          {canManage && <button className="btn btn-primary btn-sm" onClick={() => setEditing({})}>+ New Event</button>}
         </div>
       )}
 
@@ -94,25 +97,30 @@ export default function Events() {
                   {evt.description}
                 </p>
               )}
+              {evt.approval_status !== "approved" && (
+                <p className="muted" style={{ fontSize: "0.76rem", marginTop: 7 }}>
+                  Awaiting Website Admin approval before it appears on the public landing page.
+                </p>
+              )}
             </div>
             <div className="flex flex-col items-center gap-2" style={{ minWidth: 110, textAlign: "right", paddingLeft: 16 }}>
               <span className={`badge badge-${evt.status}`}>{evt.status}</span>
               {evt.budget != null && (
                 <span className="muted" style={{ fontSize: "0.78rem" }}>${evt.budget} budget</span>
               )}
-              {evt.status !== "completed" && (
+              {canManage && evt.status !== "completed" && (
                 <button className="btn btn-secondary btn-xs" onClick={() => setWrapping(evt)} title="Record how it went for future officers">
                   <ClipboardCheck size={12} /> Wrap up
                 </button>
               )}
-              <div className="flex gap-1">
+              {canManage && <div className="flex gap-1">
                 <button className="icon-btn" title="Edit" onClick={() => setEditing(evt)} style={{ color: "var(--color-muted)" }}>
                   <Pencil size={14} />
                 </button>
                 <button className="icon-btn" title="Delete" onClick={() => handleDelete(evt)}>
                   <Trash2 size={14} />
                 </button>
-              </div>
+              </div>}
             </div>
           </div>
         ))}

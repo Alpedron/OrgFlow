@@ -11,12 +11,15 @@ import Resources from "./pages/Resources.jsx";
 import PassTheTorch from "./pages/PassTheTorch.jsx";
 import Organization from "./pages/Organization.jsx";
 import Landing from "./pages/Landing.jsx";
+import LandingEditor from "./pages/LandingEditor.jsx";
+import PastEvents from "./pages/PastEvents.jsx";
 
 export default function App() {
   return (
     <Routes>
       {/* Public routes */}
       <Route path="/" element={<Landing />} />
+      <Route path="/past-events" element={<PastEvents />} />
       <Route path="/login" element={<Login />} />
       <Route path="/setup" element={<Setup />} />
 
@@ -29,7 +32,6 @@ export default function App() {
           </ProtectedRoute>
         }
       >
-        <Route index element={<Navigate to="/dashboard" replace />} />
         <Route path="dashboard" element={<Dashboard />} />
         <Route path="ask" element={<AskOrgFlow />} />
         <Route path="events" element={<Events />} />
@@ -37,10 +39,11 @@ export default function App() {
         <Route path="resources" element={<Resources />} />
         <Route path="pass-the-torch" element={<PassTheTorch />} />
         <Route path="organization" element={<Organization />} />
+        <Route path="website" element={<LandingEditor />} />
       </Route>
 
       {/* Catch-all */}
-      <Route path="*" element={<Navigate to="/dashboard" replace />} />
+      <Route path="*" element={<Navigate to="/" replace />} />
     </Routes>
   );
 }

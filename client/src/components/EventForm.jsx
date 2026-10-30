@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useRef, useState } from "react";
 import Modal from "./Modal.jsx";
 import { createEvent, updateEvent } from "../services/api.js";
 
@@ -18,11 +18,29 @@ export default function EventForm({ event, onClose, onSaved }) {
     expected_attendance: event?.expected_attendance ?? "",
     budget: event?.budget ?? "",
     description: event?.description || "",
+    image: event?.image || "",
   });
   const [error, setError] = useState("");
   const [saving, setSaving] = useState(false);
+  const imageInputRef = useRef(null);
 
   const set = (field) => (e) => setForm((f) => ({ ...f, [field]: e.target.value }));
+
+  function chooseImage(e) {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    if (file.size > 4 * 1024 * 1024) {
+      setError("Please choose an image smaller than 4 MB.");
+      return;
+    }
+    const reader = new FileReader();
+    reader.onload = () => {
+      setForm((current) => ({ ...current, image: reader.result }));
+      setError("");
+    };
+    reader.onerror = () => setError("Couldn't read that image. Please try another file.");
+    reader.readAsDataURL(file);
+  }
 
   async function handleSubmit(e) {
     e.preventDefault();
@@ -40,6 +58,7 @@ export default function EventForm({ event, onClose, onSaved }) {
         expected_attendance: form.expected_attendance === "" ? null : parseInt(form.expected_attendance, 10),
         budget: form.budget === "" ? null : parseFloat(form.budget),
         description: form.description.trim() || null,
+        image: form.image || null,
       };
       const saved = event ? await updateEvent(event.id, body) : await createEvent(body);
       onSaved(saved);
@@ -89,6 +108,35 @@ export default function EventForm({ event, onClose, onSaved }) {
             <span className="form-label">Description</span>
             <textarea className="textarea" value={form.description} onChange={set("description")} />
           </label>
+          <div className="form-field form-field-full">
+            <span className="form-label">Event photo</span>
+            <div style={{ display: "flex", alignItems: "center", gap: 12, flexWrap: "wrap" }}>
+              <button
+                type="button"
+                className="btn btn-secondary btn-sm"
+                onClick={() => imageInputRef.current?.click()}
+              >
+                {form.image ? "Replace photo" : "Upload photo"}
+              </button>
+              <input
+                ref={imageInputRef}
+                type="file"
+                accept="image/png,image/jpeg,image/webp"
+                onChange={chooseImage}
+                hidden
+              />
+              <span className="muted" style={{ fontSize: ".76rem" }}>
+                Optional · JPG, PNG, or WebP up to 4 MB
+              </span>
+            </div>
+            {form.image && (
+              <img
+                src={form.image}
+                alt="Event preview"
+                style={{ display: "block", width: "100%", height: 150, objectFit: "cover", borderRadius: 8, marginTop: 12 }}
+              />
+            )}
+          </div>
         </div>
         {error && <p className="form-error">{error}</p>}
       </form>

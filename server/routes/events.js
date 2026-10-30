@@ -27,6 +27,7 @@ router.get("/:id", async (req, res, next) => {
 // POST /api/events
 router.post("/", async (req, res, next) => {
   try {
+    if (!req.account?.isAdmin) return res.status(403).json({ error: "Only organization admins can manage event listings" });
     const { name, event_date } = req.body;
     if (!name || !event_date) {
       return res.status(400).json({ error: "Event name and date are required" });
@@ -41,6 +42,7 @@ router.post("/", async (req, res, next) => {
 // PATCH /api/events/:id
 router.patch("/:id", async (req, res, next) => {
   try {
+    if (!req.account?.isAdmin) return res.status(403).json({ error: "Only organization admins can manage event listings" });
     const event = await db.updateEvent(req.orgId, req.params.id, req.body);
     if (!event) return res.status(404).json({ error: "Event not found" });
     res.json(event);
@@ -52,6 +54,7 @@ router.patch("/:id", async (req, res, next) => {
 // DELETE /api/events/:id
 router.delete("/:id", async (req, res, next) => {
   try {
+    if (!req.account?.isAdmin) return res.status(403).json({ error: "Only organization admins can manage event listings" });
     const ok = await db.deleteEvent(req.orgId, req.params.id);
     if (!ok) return res.status(404).json({ error: "Event not found" });
     res.json({ success: true });

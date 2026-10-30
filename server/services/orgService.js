@@ -20,12 +20,14 @@ async function publicUser(user) {
     currentMember?.is_admin ||
     (org && org.created_by === user.id)
   );
+  const isWebsiteAdmin = auth.isWebsiteAdmin(user);
   return {
     id: user.id,
     email: user.email,
     name: user.name,
     role: currentMember?.role || user.role || null,
     isAdmin,
+    isWebsiteAdmin,
     org: org ? {
       ...org,
       configured: true,
@@ -35,6 +37,7 @@ async function publicUser(user) {
         email: member.email,
         role: member.role || "officer",
         isAdmin: Boolean(member.is_admin || org.created_by === member.id),
+          isWebsiteAdmin: auth.isWebsiteAdmin(member),
       })),
     } : null,
   };
@@ -48,6 +51,7 @@ async function requireOrg(req, res, next) {
     if (!user.org_id) {
       return res.status(403).json({ error: "Set up or join an organization first", code: "NO_ORG" });
     }
+
     const org = await db.getOrgById(user.org_id);
     const member = org ? (await auth.listUsersByOrg(org.id)).find((item) => item.id === user.id) : null;
     req.account = {
@@ -55,9 +59,24 @@ async function requireOrg(req, res, next) {
       role: member?.role || user.role || null,
       name: user.name,
       isAdmin: Boolean(member?.is_admin || (org && org.created_by === user.id)),
+      isWebsiteAdmin: auth.isWebsiteAdmin(user),
     };
     req.org = org;
     req.orgId = user.org_id;
+    next();
+  } catch (err) {
+    next(err);
+  }
+}
+
+async function requireWebsiteAdmin(req, res, next) {
+  try {
+    const user = await auth.getUserById(req.user.userId);
+    if (!user) return res.status(401).json({ error: "Account not found — please sign in again" });
+    if (!auth.isWebsiteAdmin(user)) {
+      return res.status(403).json({ error: "Only website administrators can edit the public website" });
+    }
+    req.account = { ...user, isWebsiteAdmin: true };
     next();
   } catch (err) {
     next(err);
@@ -143,4 +162,4 @@ async function historyContext(orgId, limit = 10) {
   return { text, sources };
 }
 
-module.exports = { publicUser, requireOrg, migrateLegacyOrgs, getHistory, historyContext };
+module.exports = { publicUser, requireOrg, requireWebsiteAdmin, migrateLegacyOrgs, getHistory, historyContext };

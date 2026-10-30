@@ -24,6 +24,7 @@ function getClient() {
   if (!process.env.SUPABASE_URL || !process.env.SUPABASE_SERVICE_KEY) {
     throw new Error("USE_MOCK=false but SUPABASE_URL / SUPABASE_SERVICE_KEY are not set");
   }
+
   const { createClient } = require("@supabase/supabase-js");
   _supabase = createClient(process.env.SUPABASE_URL, process.env.SUPABASE_SERVICE_KEY);
   return _supabase;
@@ -34,7 +35,7 @@ function getClient() {
 const STORE_PATH = process.env.DATA_STORE_PATH || path.join(__dirname, "..", "data", "store.json");
 
 function emptyStore() {
-  return { orgs: [], events: [], tasks: [], resources: [], event_reports: [], chats: [] };
+  return { orgs: [], events: [], tasks: [], resources: [], event_reports: [], chats: [], site_settings: {} };
 }
 
 function loadStore() {
@@ -62,7 +63,7 @@ const byDate = (field) => (a, b) => {
 };
 
 // Only these fields can be set from requests
-const EVENT_FIELDS = ["name", "description", "event_date", "location", "expected_attendance", "budget", "status"];
+const EVENT_FIELDS = ["name", "description", "event_date", "location", "expected_attendance", "budget", "status", "image", "approval_status", "is_public"];
 const TASK_FIELDS = ["event_id", "title", "category", "assigned_to", "due_date", "priority", "status"];
 
 function pick(obj, fields) {
@@ -83,7 +84,7 @@ function newJoinCode() {
 }
 const normalizeCode = (code) => String(code || "").toUpperCase().replace(/[^A-Z0-9]/g, "").replace(/^(.{4})(.+)$/, "$1-$2");
 
-const ORG_FIELDS = ["name", "type", "memberCount", "contactEmail", "officers"];
+const ORG_FIELDS = ["name", "type", "memberCount", "contactEmail", "officers", "landing_content"];
 
 async function createOrg(fields, createdBy) {
   const row = { ...pick(fields, ORG_FIELDS), join_code: newJoinCode(), created_by: createdBy || null };
@@ -104,6 +105,139 @@ async function getOrgById(id) {
   const { data, error } = await getClient().from("organizations").select("*").eq("id", id).maybeSingle();
   if (error) throw error;
   return data;
+}
+
+const DEFAULT_LANDING_CONTENT = {
+  eyebrow: "What's happening with student organizations",
+  kicker: "Oakland Community College",
+  headline: "November events",
+  description: "Stay in the loop with organization announcements, campus events, volunteer opportunities, and everything in between.",
+  events: [
+    {
+      label: "Featured",
+      date: "May 03",
+      title: "OrgFlow Spring Summit",
+      meta: "11:00 AM–4:00 PM · Student Center",
+      image: "https://images.unsplash.com/photo-1523240795612-9a054b0db644?auto=format&fit=crop&w=1200&q=80",
+    },
+    {
+      label: "This week",
+      date: "May 09",
+      title: "Student Leaders Forum",
+      meta: "3:30–5:00 PM · Library Commons",
+      image: "https://images.unsplash.com/photo-1529390079861-591de354faf5?auto=format&fit=crop&w=1200&q=80",
+    },
+  ],
+};
+
+function landingContent(content) {
+  return {
+    ...DEFAULT_LANDING_CONTENT,
+    ...(content || {}),
+    events: Array.isArray(content?.events) ? content.events.slice(0, 4) : DEFAULT_LANDING_CONTENT.events,
+  };
+}
+
+async function getLandingContent(orgId) {
+  if (USE_MOCK) {
+    const org = store.orgs.find((item) => item.id === orgId);
+    return landingContent(org?.landing_content);
+  }
+  const { data, error } = await getClient().from("organizations").select("landing_content").eq("id", orgId).maybeSingle();
+  if (error) throw error;
+  return landingContent(data?.landing_content);
+}
+
+async function getPublicLandingContent() {
+  if (USE_MOCK) {
+    return landingContent(store.site_settings?.landing_content);
+  }
+  const { data, error } = await getClient().from("site_settings").select("landing_content").eq("id", "public").maybeSingle();
+  if (error) throw error;
+  return landingContent(data?.landing_content);
+}
+
+async function getPublicEvents() {
+  if (USE_MOCK) {
+    return store.events
+      .filter((event) => event.approval_status === "approved" && event.is_public === true && new Date(event.event_date) >= new Date())
+      .map((event) => {
+        const org = store.orgs.find((item) => item.id === event.org_id);
+        return { ...event, organization_name: org?.name || "Organization" };
+      })
+      .sort(byDate("event_date"));
+  }
+  const { data, error } = await getClient()
+    .from("events")
+    .select("*, organizations(name)")
+    .eq("approval_status", "approved")
+    .eq("is_public", true)
+    .gte("event_date", new Date().toISOString())
+    .order("event_date");
+  if (error) throw error;
+  return data.map(({ organizations, ...event }) => ({ ...event, organization_name: organizations?.name || "Organization" }));
+}
+
+async function getPastPublicEvents() {
+  if (USE_MOCK) {
+    return store.events
+      .filter((event) => event.approval_status === "approved" && event.is_public === true && event.status === "completed")
+      .map((event) => ({
+        ...event,
+        organization_name: store.orgs.find((org) => org.id === event.org_id)?.name || "Organization",
+      }))
+      .sort((a, b) => new Date(b.event_date) - new Date(a.event_date));
+  }
+  const { data, error } = await getClient()
+    .from("events")
+    .select("*, organizations(name)")
+    .eq("approval_status", "approved")
+    .eq("is_public", true)
+    .eq("status", "completed")
+    .order("event_date", { ascending: false });
+  if (error) throw error;
+  return data.map(({ organizations, ...event }) => ({
+    ...event,
+    organization_name: organizations?.name || "Organization",
+  }));
+}
+
+async function getAllEventsForWebsite() {
+  if (USE_MOCK) {
+    return store.events.map((event) => ({
+      ...event,
+      organization_name: store.orgs.find((org) => org.id === event.org_id)?.name || "Organization",
+    })).sort(byDate("event_date"));
+  }
+  const { data, error } = await getClient().from("events").select("*, organizations(name)").order("event_date");
+  if (error) throw error;
+  return data.map(({ organizations, ...event }) => ({ ...event, organization_name: organizations?.name || "Organization" }));
+}
+
+async function updateEventPublication(id, updates) {
+  const fields = pick(updates, ["approval_status", "is_public"]);
+  if (USE_MOCK) {
+    const event = store.events.find((item) => item.id === id);
+    if (!event) return null;
+    Object.assign(event, fields);
+    saveStore();
+    return event;
+  }
+  const { data, error } = await getClient().from("events").update(fields).eq("id", id).select().single();
+  if (error) throw error;
+  return data;
+}
+
+async function updateLandingContent(orgId, content) {
+  const next = landingContent(content);
+  if (USE_MOCK) {
+    store.site_settings = { ...store.site_settings, landing_content: next };
+    saveStore();
+    return next;
+  }
+  const { error } = await getClient().from("site_settings").upsert({ id: "public", landing_content: next });
+  if (error) throw error;
+  return next;
 }
 
 async function getOrgByJoinCode(code) {
@@ -182,7 +316,13 @@ async function getEventById(orgId, id) {
 }
 
 async function createEvent(orgId, event) {
-  const fields = { status: "planning", ...pick(event, EVENT_FIELDS), org_id: orgId };
+  const fields = {
+    status: "planning",
+    approval_status: "pending",
+    is_public: false,
+    ...pick(event, EVENT_FIELDS),
+    org_id: orgId,
+  };
   if (USE_MOCK) {
     const newEvent = { id: randomUUID(), created_at: now(), ...fields };
     store.events.push(newEvent);
@@ -451,11 +591,18 @@ module.exports = {
   getClient,
   createOrg,
   getOrgById,
+  getLandingContent,
+  getPublicLandingContent,
+  updateLandingContent,
   getOrgByJoinCode,
   updateOrg,
   regenerateJoinCode,
   migrateOwnerRows,
   getEventReports,
+  getPublicEvents,
+  getPastPublicEvents,
+  getAllEventsForWebsite,
+  updateEventPublication,
   getChat,
   saveChat,
   clearChat,

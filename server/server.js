@@ -22,8 +22,9 @@ const reflectionsRouter = require("./routes/reflections");
 const authRouter = require("./routes/auth");
 const setupRouter = require("./routes/setup");
 const { requireAuth } = require("./services/authService");
-const { requireOrg, migrateLegacyOrgs } = require("./services/orgService");
+const { requireOrg, requireWebsiteAdmin, migrateLegacyOrgs } = require("./services/orgService");
 const orgRouter = require("./routes/org");
+const landingRouter = require("./routes/landing");
 
 const app = express();
 const PORT = process.env.PORT || 3001;
@@ -46,10 +47,12 @@ app.use(express.json({ limit: "15mb" }));
 app.use("/api", healthRouter);
 app.use("/api/auth", authRouter);
 app.use("/api/setup", setupRouter);
+app.use("/api/landing", landingRouter);
 // Everything below needs a signed-in user who belongs to a club. Data belongs
 // to the club, so every officer of the same club (now and future) sees it.
 const member = [requireAuth, requireOrg];
 app.use("/api/org", member, orgRouter);
+app.use("/api/landing", requireAuth, requireWebsiteAdmin, landingRouter);
 app.use("/api/events", member, reflectionsRouter); // /api/events/:id/reflection
 app.use("/api/events", member, eventsRouter);
 app.use("/api/tasks", member, tasksRouter);

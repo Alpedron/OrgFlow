@@ -44,10 +44,10 @@ export default function Login() {
     <div className="login-page">
       <div className="login-card">
         {/* Logo */}
-        <div className="login-logo">
+        <Link className="login-logo" to="/" aria-label="Back to OrgFlow home">
           <span className="login-logo-icon"><GraduationCap size={22} /></span>
           <span className="login-logo-text">OrgFlow</span>
-        </div>
+        </Link>
 
         <h1 className="login-heading">
           {mode === "login" ? "Welcome back" : "Create your account"}

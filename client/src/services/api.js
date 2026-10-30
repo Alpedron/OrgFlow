@@ -64,6 +64,14 @@ export const saveSetup = (data) =>
 // ── Organization (club) ────────────────────────────────────────────────
 
 export const getOrg = () => request("/org");
+export const getPublicLanding = () => request("/landing", { cache: "no-store" });
+export const getPastPublicEvents = () => request("/landing/past-events", { cache: "no-store" });
+export const getLandingContent = () => request("/landing/manage");
+export const updateLandingContent = (content) =>
+  request("/landing/manage", { method: "PUT", body: content });
+export const getWebsiteContent = () => request("/landing/manage");
+export const updateEventPublication = (id, updates) =>
+  request(`/landing/events/${id}`, { method: "PATCH", body: updates });
 export const updateMemberRole = (memberId, role, isAdmin) =>
   request(`/org/members/${memberId}`, { method: "PATCH", body: { role, isAdmin } });
 export const getOrgHistory = () => request("/org/history");

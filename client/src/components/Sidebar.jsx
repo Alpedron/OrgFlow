@@ -12,6 +12,7 @@ import {
   LogOut,
   Settings,
   Copy,
+  Globe,
 } from "lucide-react";
 import { useAuth } from "../context/AuthContext.jsx";
 import { copyTextToClipboard } from "../utils/clipboard.js";
@@ -42,6 +43,7 @@ const NAV_GROUPS = [
     label: "Organization",
     items: [
       { to: "/organization", label: "Members & Roles", Icon: Settings },
+      { to: "/website", label: "Website", Icon: Globe, websiteAdminOnly: true },
     ],
   },
   {
@@ -144,7 +146,7 @@ export default function Sidebar() {
         {NAV_GROUPS.map(({ label, items }) => (
           <div key={label}>
             <span className="sidebar-group-label">{label}</span>
-            {items.map(({ to, label: itemLabel, Icon }) => (
+            {items.filter((item) => !item.websiteAdminOnly || user?.isWebsiteAdmin).map(({ to, label: itemLabel, Icon }) => (
               <NavLink
                 key={to}
                 to={to}
