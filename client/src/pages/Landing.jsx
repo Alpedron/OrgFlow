@@ -4,6 +4,8 @@ import {
   ArrowRight,
   ArrowUpRight,
   CalendarDays,
+  ChevronLeft,
+  ChevronRight,
   Clock3,
   ExternalLink,
   Sparkles,
@@ -69,6 +71,7 @@ function isExternalLink(value) {
 export default function Landing() {
   const [content, setContent] = useState(null);
   const [selectedPoster, setSelectedPoster] = useState(null);
+  const [featuredIndex, setFeaturedIndex] = useState(0);
 
   useEffect(() => {
     getPublicLanding().then((data) => {
@@ -82,6 +85,20 @@ export default function Landing() {
       // The local defaults keep the public page useful while the API is unavailable.
     });
   }, []);
+
+  const featuredEvents = content?.events?.length ? content.events : EVENTS;
+
+  useEffect(() => {
+    setFeaturedIndex(0);
+  }, [content?.events?.length]);
+
+  useEffect(() => {
+    if (featuredEvents.length < 2) return undefined;
+    const timer = window.setInterval(() => {
+      setFeaturedIndex((index) => (index + 1) % featuredEvents.length);
+    }, 5000);
+    return () => window.clearInterval(timer);
+  }, [featuredEvents.length]);
 
   useEffect(() => {
     if (!selectedPoster) return undefined;
@@ -119,8 +136,10 @@ export default function Landing() {
         </div>
 
         <div className="landing-event-track" id="events">
-          {landingContent.events.map((event, index) => (
-            <article className="landing-event-card" key={`${event.title}-${index}`}>
+          {(() => {
+            const event = featuredEvents[featuredIndex % featuredEvents.length];
+            return (
+            <article className="landing-event-card" key={`${event.title}-${featuredIndex}`}>
               <button
                 type="button"
                 className="landing-event-poster"
@@ -150,7 +169,19 @@ export default function Landing() {
                 </a>
               )}
             </article>
-          ))}
+            );
+          })()}
+          {featuredEvents.length > 1 && (
+            <div className="landing-carousel-controls">
+              <button type="button" onClick={() => setFeaturedIndex((featuredIndex - 1 + featuredEvents.length) % featuredEvents.length)} aria-label="Previous featured event"><ChevronLeft size={18} /></button>
+              <div className="landing-carousel-dots" aria-label="Featured event slides">
+                {featuredEvents.map((event, index) => (
+                  <button type="button" key={`${event.title}-${index}`} className={index === featuredIndex ? "is-active" : ""} onClick={() => setFeaturedIndex(index)} aria-label={`Show featured event ${index + 1}`} />
+                ))}
+              </div>
+              <button type="button" onClick={() => setFeaturedIndex((featuredIndex + 1) % featuredEvents.length)} aria-label="Next featured event"><ChevronRight size={18} /></button>
+            </div>
+          )}
         </div>
       </section>
 

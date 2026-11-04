@@ -64,12 +64,22 @@ export const saveSetup = (data) =>
 // ── Organization (club) ────────────────────────────────────────────────
 
 export const getOrg = () => request("/org");
+export const getInterestSubmissions = (page = 1) => request(`/org/interest-submissions?page=${page}`);
+export const clearInterestSubmissions = () =>
+  request("/org/interest-submissions", { method: "DELETE" });
 export const getPublicLanding = () => request("/landing", { cache: "no-store" });
+export const getPublicOrganizations = () => request("/landing/organizations", { cache: "no-store" });
+export const requestOrganization = (data) =>
+  request("/landing/organization-requests", { method: "POST", body: data });
+export const submitInterest = (data) =>
+  request("/landing/interest-submissions", { method: "POST", body: data });
 export const getUpcomingPublicEvents = () => request("/landing/upcoming-events", { cache: "no-store" });
 export const getPastPublicEvents = () => request("/landing/past-events", { cache: "no-store" });
 export const getLandingContent = () => request("/landing/manage");
 export const updateLandingContent = (content) =>
   request("/landing/manage", { method: "PUT", body: content });
+export const approveOrganizationRequest = (id) =>
+  request(`/landing/organization-requests/${id}`, { method: "PATCH", body: {} });
 export const getWebsiteContent = () => request("/landing/manage");
 export const updateEventPublication = (id, updates) =>
   request(`/landing/events/${id}`, { method: "PATCH", body: updates });

@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 import { ShieldCheck, Users, UserPlus, Check, X } from "lucide-react";
-import { getOrg, updateMemberRole } from "../services/api.js";
+import { getOrg, getInterestSubmissions, clearInterestSubmissions, updateMemberRole } from "../services/api.js";
 import { useAuth } from "../context/AuthContext.jsx";
 
 export default function Organization() {
@@ -11,7 +11,10 @@ export default function Organization() {
   const [error, setError] = useState("");
   const [savingId, setSavingId] = useState("");
   const [draftRoles, setDraftRoles] = useState({});
+  const [interestPage, setInterestPage] = useState({ items: [], page: 1, total: 0, totalPages: 1 });
+  const [interestError, setInterestError] = useState("");
   const canManage = Boolean(user?.isAdmin);
+  const canViewInterests = canManage || Boolean(user?.role && !["member", "general member"].includes(String(user.role).toLowerCase()));
   const configuredRoles = Array.from(new Set([
     ...(org?.officers || []).map((officer) => officer.role).filter(Boolean),
     ...members.map((member) => member.role).filter(Boolean),
@@ -26,6 +29,21 @@ export default function Organization() {
       .catch((err) => setError(err.message))
       .finally(() => setLoading(false));
   }, []);
+
+  useEffect(() => {
+    if (!canViewInterests) return;
+    getInterestSubmissions(interestPage.page).then(setInterestPage).catch((err) => setInterestError(err.message));
+  }, [canViewInterests, interestPage.page]);
+
+  async function clearInterests() {
+    if (!window.confirm("Remove all interest submissions for this organization? This is intended for starting a new semester and cannot be undone.")) return;
+    try {
+      await clearInterestSubmissions();
+      setInterestPage({ items: [], page: 1, total: 0, totalPages: 1 });
+    } catch (err) {
+      setInterestError(err.message);
+    }
+  }
 
   async function updateRole(member, role, isAdmin) {
     setSavingId(member.id);
@@ -117,6 +135,33 @@ export default function Organization() {
       </div>
 
       {!canManage && <p className="muted" style={{ marginTop: 12 }}>Only an organization admin can change roles or admin access.</p>}
+      {canViewInterests && (
+        <div className="card" style={{ overflowX: "auto", marginTop: 20 }}>
+          <div style={{ padding: "16px 18px", borderBottom: "1px solid var(--color-border-light)" }}>
+            <h2 style={{ fontSize: "1rem", marginBottom: 4 }}>Interest submissions</h2>
+            <div className="flex justify-between items-center" style={{ gap: 12 }}>
+              <p className="muted" style={{ fontSize: "0.8rem" }}>Students who asked to connect with {org?.name || "your organization"}. Showing 10 per page.</p>
+              {canManage && interestPage.total > 0 && <button className="btn btn-ghost btn-sm" type="button" onClick={clearInterests}>Clear list for new semester</button>}
+            </div>
+          </div>
+          {interestError && <p className="form-error" style={{ margin: 18 }}>{interestError}</p>}
+          {!interestError && !interestPage.total && <p className="muted" style={{ padding: 18 }}>No interest forms have been submitted yet.</p>}
+          {!!interestPage.items.length && <table style={{ width: "100%", borderCollapse: "collapse" }}>
+            <thead><tr><th style={{ textAlign: "left", padding: "12px 18px", fontSize: "0.75rem" }}>Student</th><th style={{ textAlign: "left", padding: "12px 18px", fontSize: "0.75rem" }}>Academic information</th><th style={{ textAlign: "left", padding: "12px 18px", fontSize: "0.75rem" }}>Contact</th><th style={{ textAlign: "left", padding: "12px 18px", fontSize: "0.75rem" }}>Submitted</th></tr></thead>
+            <tbody>{interestPage.items.map((interest) => <tr key={interest.id}>
+              <td style={{ padding: "12px 18px", borderTop: "1px solid var(--color-border-light)" }}><strong style={{ display: "block", fontSize: "0.85rem" }}>{interest.name}</strong><span className="muted" style={{ fontSize: "0.75rem" }}>{interest.student_email}</span></td>
+              <td style={{ padding: "12px 18px", borderTop: "1px solid var(--color-border-light)" }}>{interest.year}<br /><span className="muted" style={{ fontSize: "0.75rem" }}>{interest.program}</span></td>
+              <td style={{ padding: "12px 18px", borderTop: "1px solid var(--color-border-light)" }}>{interest.contact_number}</td>
+              <td style={{ padding: "12px 18px", borderTop: "1px solid var(--color-border-light)", whiteSpace: "nowrap" }}>{new Date(interest.created_at).toLocaleDateString()}</td>
+            </tr>)}</tbody>
+          </table>}
+          {interestPage.totalPages > 1 && <div className="flex justify-between items-center" style={{ padding: 14, gap: 12 }}>
+            <button className="btn btn-secondary btn-sm" type="button" disabled={interestPage.page <= 1} onClick={() => setInterestPage((current) => ({ ...current, page: current.page - 1 }))}>Previous</button>
+            <span className="muted" style={{ fontSize: ".8rem" }}>Page {interestPage.page} of {interestPage.totalPages} · {interestPage.total} total</span>
+            <button className="btn btn-secondary btn-sm" type="button" disabled={interestPage.page >= interestPage.totalPages} onClick={() => setInterestPage((current) => ({ ...current, page: current.page + 1 }))}>Next</button>
+          </div>}
+        </div>
+      )}
       {org?.created_by === user?.id && <div className="muted" style={{ marginTop: 12 }}><ShieldCheck size={14} /> You are the organization owner.</div>}
       <div className="muted" style={{ marginTop: 12 }}><UserPlus size={14} /> Role changes must match the organization’s configured officer roles.</div>
     </div>

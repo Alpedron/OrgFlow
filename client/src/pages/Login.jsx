@@ -9,7 +9,7 @@ export default function Login() {
   const navigate = useNavigate();
   const { signIn } = useAuth();
   const [mode, setMode] = useState("login"); // "login" | "register"
-  const [form, setForm] = useState({ name: "", email: "", password: "" });
+  const [form, setForm] = useState({ name: "", email: "", password: "", organizationName: "" });
   const [showPw, setShowPw] = useState(false);
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
@@ -26,7 +26,7 @@ export default function Login() {
       const fn = mode === "login" ? login : register;
       const payload = mode === "login"
         ? { email: form.email, password: form.password }
-        : { name: form.name, email: form.email, password: form.password };
+        : { name: form.name, email: form.email, password: form.password, organizationName: form.organizationName };
 
       const { token, user } = await fn(payload);
       signIn(token, user);
@@ -73,6 +73,16 @@ export default function Login() {
                   autoComplete="name"
                 />
               </div>
+            </div>
+          )}
+          {mode === "register" && (
+            <div className="login-field">
+              <label className="login-label">Organization or club name</label>
+              <div className="login-input-wrap">
+                <GraduationCap size={15} className="login-input-icon" />
+                <input className="login-input" type="text" placeholder="Student Government" value={form.organizationName} onChange={update("organizationName")} required />
+              </div>
+              <p className="login-help">Your organization must be listed by a Website Admin, or your request will need approval.</p>
             </div>
           )}
 

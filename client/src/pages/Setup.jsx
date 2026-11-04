@@ -6,7 +6,7 @@ import { useAuth } from "../context/AuthContext.jsx";
 import { copyTextToClipboard } from "../utils/clipboard.js";
 import "./Setup.css";
 
-const ORG_TYPES = ["Student Government", "Club", "Academic Association", "Other"];
+const ORG_TYPES = ["Student Organization", "Student Club", "Academic Student Associations"];
 const CUSTOM_ROLE = "__custom__";
 
 const ROLE_OPTIONS = [
@@ -57,6 +57,7 @@ export default function Setup() {
   const [copyError, setCopyError] = useState("");
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState("");
+  const [pendingRequest, setPendingRequest] = useState(false);
 
   // Step 0 — org basics
   const [orgName, setOrgName] = useState(existing.name || "");
@@ -144,7 +145,13 @@ export default function Setup() {
         },
       };
 
-      const { user } = await saveSetup(body);
+      const result = await saveSetup(body);
+      if (result.pending) {
+        setPendingRequest(true);
+        setSaving(false);
+        return;
+      }
+      const { user } = result;
       updateUser({ org: user.org, role: user.role });
       setInviteCode(user.org?.join_code || "");
       setStep(3); // done screen
@@ -184,6 +191,20 @@ export default function Setup() {
   // The wizard saves to the signed-in account, so it needs one
   if (authLoading) return null;
   if (!user) return <Navigate to="/login" replace />;
+
+  if (pendingRequest) {
+    return (
+      <div className="setup-page">
+        <div className="setup-card">
+          <div className="setup-body">
+            <h2 className="setup-title">Request sent for approval</h2>
+            <p className="setup-sub">A Website Admin must approve your organization before it can finish setup or appear in the public directory.</p>
+            <button type="button" className="btn btn-primary" onClick={() => navigate("/")}>Back to website</button>
+          </div>
+        </div>
+      </div>
+    );
+  }
 
   // ── Render ───────────────────────────────────────────────────────────────────
 

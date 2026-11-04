@@ -289,6 +289,17 @@ CREATE TABLE site_settings (
   landing_content jsonb DEFAULT '{}'::jsonb
 );
 
+CREATE TABLE organization_requests (
+  id            uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+  name          text NOT NULL,
+  type          text,
+  description   text,
+  contact_email text,
+  requested_by  uuid REFERENCES profiles(id),
+  status        text DEFAULT 'pending',
+  created_at    timestamptz DEFAULT now()
+);
+
 -- accounts (passwords are bcrypt hashes; login tokens are signed by the server)
 CREATE TABLE profiles (
   id              uuid PRIMARY KEY,
@@ -399,7 +410,63 @@ CREATE TABLE IF NOT EXISTS site_settings (
  id text PRIMARY KEY,
  landing_content jsonb DEFAULT '{}'::jsonb
 );
+
+CREATE TABLE IF NOT EXISTS organization_requests (
+ id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+ name text NOT NULL,
+ type text,
+ description text,
+ contact_email text,
+ requested_by uuid REFERENCES profiles(id),
+ status text DEFAULT 'pending',
+ created_at timestamptz DEFAULT now()
+);
+
+CREATE TABLE IF NOT EXISTS organization_interest_submissions (
+ id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+ org_id text NOT NULL,
+ organization text NOT NULL,
+ name text NOT NULL,
+ student_email text NOT NULL,
+ contact_number text NOT NULL,
+ year text NOT NULL,
+ program text NOT NULL,
+ created_at timestamptz DEFAULT now()
+);
 ```
+
+Students submit interest forms at `/interest`. Organization officers can view
+submissions for their organization from the Organization page in OrgFlow.
+The form requires a valid email address and a 10-digit US phone number
+(digits only).
+
+Interest submissions are returned 10 at a time with page navigation and include
+the submission date. Organization admins can use **Clear list for new
+semester** from the Organization page to remove only their organization's old
+submissions before starting a new recruitment cycle.
+
+The public organization directory is stored in `site_settings.landing_content`.
+Each directory entry supports up to three labeled links:
+
+```json
+{
+  "name": "Example Club",
+  "type": "Student Club",
+  "links": [
+    { "label": "Instagram", "url": "https://example.com/instagram" }
+  ]
+}
+```
+
+Directory descriptions may use up to 200 words and may use `<strong>`, `<em>`, and `<u>` formatting. The
+Website Admin editor provides buttons for these styles and strips other HTML.
+Advisor information and contact information are stored separately from the
+description as `advisor` and `contact` fields.
+
+Visitors can use `/organizations` to browse the directory and
+`/start-organization` to review the OWL Network handbook checklist and submit
+an organization request. Requests remain pending until a Website Admin
+approves them; pending organizations are not added to the public directory.
 
 ---
 

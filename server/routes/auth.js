@@ -13,6 +13,7 @@ const bcrypt = require("bcryptjs");
 const jwt = require("jsonwebtoken");
 const { createUser, getUserByEmail, getUserById, requireAuth } = require("../services/authService");
 const { publicUser } = require("../services/orgService");
+const db = require("../services/supabaseService");
 
 const router = Router();
 const USE_MOCK = process.env.USE_MOCK !== "false";
@@ -21,12 +22,15 @@ const USE_MOCK = process.env.USE_MOCK !== "false";
 
 router.post("/register", async (req, res, next) => {
   try {
-    const { email, password, name } = req.body;
+    const { email, password, name, organizationName } = req.body;
     if (!email || !password) {
       return res.status(400).json({ error: "Email and password are required" });
     }
     if (String(password).length < 6) {
       return res.status(400).json({ error: "Password must be at least 6 characters" });
+    }
+    if (!String(organizationName || "").trim()) {
+      return res.status(400).json({ error: "Organization or club name is required" });
     }
 
     const existing = await getUserByEmail(email);
@@ -36,6 +40,13 @@ router.post("/register", async (req, res, next) => {
 
     const passwordHash = await bcrypt.hash(password, 10);
     const user = await createUser({ email, passwordHash, name: name || email.split("@")[0] });
+    const listedOrganization = await db.findPublicOrganization(organizationName);
+    if (!listedOrganization) {
+      await db.createOrganizationRequest({
+        name: organizationName,
+        contact_email: email,
+      }, user.id);
+    }
 
     const token = jwt.sign(
       { userId: user.id, email: user.email },
@@ -46,6 +57,7 @@ router.post("/register", async (req, res, next) => {
     res.status(201).json({
       token,
       user: await publicUser(user),
+      organizationApproved: Boolean(listedOrganization),
     });
   } catch (err) {
     next(err);

@@ -27,6 +27,29 @@ router.get("/", async (req, res, next) => {
   }
 });
 
+router.get("/interest-submissions", async (req, res, next) => {
+  try {
+    const role = String(req.account?.role || "").toLowerCase();
+    if (!req.account?.isAdmin && (!role || role === "member" || role === "general member")) {
+      return res.status(403).json({ error: "Only organization officers can view interest submissions" });
+    }
+    const page = Number.parseInt(req.query.page, 10) || 1;
+    res.json(await db.getInterestSubmissions(req.orgId, req.org?.name, page, 10));
+  } catch (err) {
+    next(err);
+  }
+});
+
+router.delete("/interest-submissions", async (req, res, next) => {
+  try {
+    if (!req.account?.isAdmin) return res.status(403).json({ error: "Only organization admins can clear interest submissions" });
+    await db.clearInterestSubmissions(req.orgId, req.org?.name);
+    res.json({ cleared: true });
+  } catch (err) {
+    next(err);
+  }
+});
+
 // PATCH /api/org/members/:id — leaders update member roles and admin access
 router.patch("/members/:id", async (req, res, next) => {
   try {

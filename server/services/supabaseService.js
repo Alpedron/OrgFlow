@@ -35,7 +35,7 @@ function getClient() {
 const STORE_PATH = process.env.DATA_STORE_PATH || path.join(__dirname, "..", "data", "store.json");
 
 function emptyStore() {
-  return { orgs: [], events: [], tasks: [], resources: [], event_reports: [], chats: [], site_settings: {} };
+  return { orgs: [], events: [], tasks: [], resources: [], event_reports: [], chats: [], org_requests: [], interest_submissions: [], site_settings: {} };
 }
 
 function loadStore() {
@@ -65,6 +65,7 @@ const byDate = (field) => (a, b) => {
 // Only these fields can be set from requests
 const EVENT_FIELDS = ["name", "description", "event_date", "location", "expected_attendance", "budget", "status", "image", "external_link", "approval_status", "is_public"];
 const TASK_FIELDS = ["event_id", "title", "category", "assigned_to", "due_date", "priority", "status"];
+const INTEREST_FIELDS = ["name", "student_email", "contact_number", "year", "program", "organization"];
 
 function pick(obj, fields) {
   const out = {};
@@ -107,11 +108,87 @@ async function getOrgById(id) {
   return data;
 }
 
+async function createInterestSubmission(fields) {
+  const row = {
+    id: randomUUID(),
+    ...pick(fields, INTEREST_FIELDS),
+    org_id: fields.org_id,
+    created_at: now(),
+  };
+  if (USE_MOCK) {
+    store.interest_submissions.push(row);
+    saveStore();
+    return row;
+  }
+  const { data, error } = await getClient().from("organization_interest_submissions").insert(row).select().single();
+  if (error) throw error;
+  return data;
+}
+
+async function getInterestSubmissions(orgId, organizationName, page = 1, pageSize = 10) {
+  const normalizeOrganizationName = (value) => String(value || "")
+    .toLowerCase()
+    .replace(/\bgovenrment\b/g, "government")
+    .replace(/[^a-z0-9]/g, "");
+  const normalizedName = normalizeOrganizationName(organizationName);
+  const all = USE_MOCK ? store.interest_submissions
+      .filter((submission) =>
+        submission.org_id === orgId ||
+        normalizeOrganizationName(submission.organization) === normalizedName
+      )
+      : null;
+  let submissions = all;
+  if (!USE_MOCK) {
+    const { data, error } = await getClient()
+      .from("organization_interest_submissions")
+      .select("*")
+      .order("created_at", { ascending: false });
+    if (error) throw error;
+    submissions = data.filter((submission) =>
+    submission.org_id === orgId ||
+    normalizeOrganizationName(submission.organization) === normalizedName
+    );
+  }
+  submissions.sort((a, b) => new Date(b.created_at) - new Date(a.created_at));
+  const total = submissions.length;
+  const totalPages = Math.max(1, Math.ceil(total / pageSize));
+  const safePage = Math.min(Math.max(Number(page) || 1, 1), totalPages);
+  return {
+    items: submissions.slice((safePage - 1) * pageSize, safePage * pageSize),
+    page: safePage,
+    pageSize,
+    total,
+    totalPages,
+  };
+}
+
+async function clearInterestSubmissions(orgId, organizationName) {
+  const normalizeOrganizationName = (value) => String(value || "").toLowerCase().replace(/\bgovenrment\b/g, "government").replace(/[^a-z0-9]/g, "");
+  const normalizedName = normalizeOrganizationName(organizationName);
+  if (USE_MOCK) {
+    store.interest_submissions = store.interest_submissions.filter((submission) =>
+      submission.org_id !== orgId && normalizeOrganizationName(submission.organization) !== normalizedName
+    );
+    saveStore();
+    return;
+  }
+  const { data, error } = await getClient().from("organization_interest_submissions").select("id, org_id, organization");
+  if (error) throw error;
+  const ids = data.filter((submission) =>
+    submission.org_id === orgId || normalizeOrganizationName(submission.organization) === normalizedName
+  ).map((submission) => submission.id);
+  if (ids.length) {
+    const result = await getClient().from("organization_interest_submissions").delete().in("id", ids);
+    if (result.error) throw result.error;
+  }
+}
+
 const DEFAULT_LANDING_CONTENT = {
   eyebrow: "What's happening with student organizations",
   kicker: "Oakland Community College",
   headline: "November events",
   description: "Stay in the loop with organization announcements, campus events, volunteer opportunities, and everything in between.",
+  organizations: [],
   events: [
     {
       label: "Featured",
@@ -134,7 +211,26 @@ function landingContent(content) {
   return {
     ...DEFAULT_LANDING_CONTENT,
     ...(content || {}),
-    events: Array.isArray(content?.events) ? content.events.slice(0, 4) : DEFAULT_LANDING_CONTENT.events,
+    events: Array.isArray(content?.events) ? content.events.slice(0, 5) : DEFAULT_LANDING_CONTENT.events,
+    organizations: Array.isArray(content?.organizations) ? content.organizations.map((organization) => ({
+      ...organization,
+      description: String(organization.description || "")
+        .replace(/<(?!\/?(?:strong|em|u)\b)[^>]*>/gi, "")
+        .replace(/<(strong|em|u)(?:\s[^>]*)?>/gi, "<$1>")
+        .replace(/<\/(strong|em|u)\s*>/gi, "</$1>"),
+      type: ["Student Organization", "Student Club", "Academic Student Associations"].includes(organization.type)
+        ? organization.type
+        : organization.type === "Academic Association"
+          ? "Academic Student Associations"
+          : organization.type === "Club" ? "Student Club" : "Student Organization",
+      links: Array.isArray(organization.links)
+        ? organization.links.slice(0, 3)
+        : organization.link
+          ? [{ label: "Learn more", url: organization.link }]
+          : [],
+      advisor: String(organization.advisor || "").trim(),
+      contact: String(organization.contact || "").trim(),
+    })) : DEFAULT_LANDING_CONTENT.organizations,
   };
 }
 
@@ -155,6 +251,58 @@ async function getPublicLandingContent() {
   const { data, error } = await getClient().from("site_settings").select("landing_content").eq("id", "public").maybeSingle();
   if (error) throw error;
   return landingContent(data?.landing_content);
+}
+
+async function getPublicOrganizations() {
+  const content = await getPublicLandingContent();
+  return content.organizations;
+}
+
+async function findPublicOrganization(name) {
+  const normalized = String(name || "").trim().toLowerCase();
+  if (!normalized) return null;
+  return (await getPublicOrganizations()).find((org) => String(org.name || "").trim().toLowerCase() === normalized) || null;
+}
+
+async function createOrganizationRequest(fields, requestedBy) {
+  const request = {
+    id: randomUUID(),
+    name: String(fields.name || "").trim(),
+    type: String(fields.type || "Student Organization").trim(),
+    description: String(fields.description || "").trim(),
+    contact_email: fields.contact_email || null,
+    requested_by: requestedBy || null,
+    status: "pending",
+    created_at: now(),
+  };
+  if (USE_MOCK) {
+    store.org_requests.push(request);
+    saveStore();
+    return request;
+  }
+  const { data, error } = await getClient().from("organization_requests").insert(request).select().single();
+  if (error) throw error;
+  return data;
+}
+
+async function getOrganizationRequests() {
+  if (USE_MOCK) return [...store.org_requests].sort((a, b) => new Date(b.created_at) - new Date(a.created_at));
+  const { data, error } = await getClient().from("organization_requests").select("*").order("created_at", { ascending: false });
+  if (error) throw error;
+  return data;
+}
+
+async function approveOrganizationRequest(id) {
+  if (USE_MOCK) {
+    const request = store.org_requests.find((item) => item.id === id);
+    if (!request) return null;
+    request.status = "approved";
+    saveStore();
+    return request;
+  }
+  const { data, error } = await getClient().from("organization_requests").update({ status: "approved" }).eq("id", id).select().single();
+  if (error) throw error;
+  return data;
 }
 
 async function getPublicEvents() {
@@ -593,6 +741,14 @@ module.exports = {
   getOrgById,
   getLandingContent,
   getPublicLandingContent,
+  getPublicOrganizations,
+  findPublicOrganization,
+  createOrganizationRequest,
+  createInterestSubmission,
+  getInterestSubmissions,
+  clearInterestSubmissions,
+  getOrganizationRequests,
+  approveOrganizationRequest,
   updateLandingContent,
   getOrgByJoinCode,
   updateOrg,

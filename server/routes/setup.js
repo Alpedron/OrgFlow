@@ -16,6 +16,7 @@ const OFFICER_ROLES = [
   "President", "Vice President", "Secretary", "Treasurer",
   "Events Coordinator", "Public Relations Officer", "Liaison", "General Member",
 ];
+const ORGANIZATION_TYPES = ["Student Organization", "Student Club", "Academic Student Associations"];
 
 // POST /api/setup/join-roles — return the same built-in roles used during signup,
 // plus any custom roles configured by the organization.
@@ -60,6 +61,9 @@ router.post("/", requireAuth, async (req, res, next) => {
     if (!orgName || !orgType) {
       return res.status(400).json({ error: "Organization name and type are required" });
     }
+    if (!ORGANIZATION_TYPES.includes(orgType)) {
+      return res.status(400).json({ error: "Choose a valid organization type." });
+    }
     const fields = {
       name: String(orgName).trim(),
       type: orgType,
@@ -73,7 +77,25 @@ router.post("/", requireAuth, async (req, res, next) => {
     if (org) {
       org = await db.updateOrg(org.id, fields);
     } else {
-      org = await db.createOrg(fields, user.id);
+      const listed = await db.findPublicOrganization(fields.name);
+      if (!listed) {
+        const request = await db.createOrganizationRequest({
+          name: fields.name,
+          type: fields.type,
+          description: fields.description,
+          contact_email: fields.contactEmail,
+        }, user.id);
+        return res.status(202).json({
+          pending: true,
+          message: "Your organization request was sent to the Website Admin for approval.",
+          request,
+          user: await publicUser(updated),
+        });
+      }
+      org = await db.createOrg({
+        ...fields,
+        landing_content: null,
+      }, user.id);
       updated = await setUserOrg(user.id, org.id);
     }
 

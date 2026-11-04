@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { ChevronDown, Menu, X } from "lucide-react";
+import { Menu, X } from "lucide-react";
 import { Link } from "react-router-dom";
 import orgflowLogo from "../assets/sg200.png";
 
@@ -26,13 +26,10 @@ export default function PublicHeader() {
         {menuOpen ? <X size={22} /> : <Menu size={22} />}
       </button>
       <nav className={`landing-nav ${menuOpen ? "is-open" : ""}`} aria-label="Main navigation">
-        <Link to="/#announcements" onClick={closeMenu}>Announcements</Link>
-        <Link to="/#events" onClick={closeMenu}>Events</Link>
-        <Link to="/upcoming-events" onClick={closeMenu}>All upcoming events</Link>
+        <Link to="/" onClick={closeMenu}>Home</Link>
+        <Link to="/upcoming-events" onClick={closeMenu}>Upcoming events</Link>
         <Link to="/past-events" onClick={closeMenu}>Past events</Link>
-        <Link to="/#organizations" onClick={closeMenu} className="landing-nav-dropdown">
-          Orgs / Clubs <ChevronDown size={14} />
-        </Link>
+        <Link to="/organizations" onClick={closeMenu}>Orgs / Clubs</Link>
         <Link to="/#about" onClick={closeMenu}>About us</Link>
         <Link className="landing-login-link" to="/login" onClick={closeMenu}>Log in to OrgFlow</Link>
       </nav>

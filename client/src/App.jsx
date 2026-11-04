@@ -14,6 +14,9 @@ import Landing from "./pages/Landing.jsx";
 import LandingEditor from "./pages/LandingEditor.jsx";
 import PastEvents from "./pages/PastEvents.jsx";
 import UpcomingEvents from "./pages/UpcomingEvents.jsx";
+import Organizations from "./pages/Organizations.jsx";
+import StartOrganization from "./pages/StartOrganization.jsx";
+import InterestForm from "./pages/InterestForm.jsx";
 
 export default function App() {
   return (
@@ -22,6 +25,9 @@ export default function App() {
       <Route path="/" element={<Landing />} />
       <Route path="/past-events" element={<PastEvents />} />
       <Route path="/upcoming-events" element={<UpcomingEvents />} />
+      <Route path="/organizations" element={<Organizations />} />
+      <Route path="/start-organization" element={<StartOrganization />} />
+      <Route path="/interest" element={<InterestForm />} />
       <Route path="/login" element={<Login />} />
       <Route path="/setup" element={<Setup />} />
 
