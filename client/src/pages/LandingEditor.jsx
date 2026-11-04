@@ -2,7 +2,7 @@ import { useEffect, useRef, useState } from "react";
 import { ImagePlus, Save, Trash2 } from "lucide-react";
 import { getWebsiteContent, updateLandingContent, updateEventPublication } from "../services/api.js";
 
-const EMPTY_EVENT = { label: "", date: "", title: "", meta: "", image: "" };
+const EMPTY_EVENT = { label: "", date: "", title: "", meta: "", image: "", external_link: "" };
 
 export default function LandingEditor() {
   const [content, setContent] = useState(null);
@@ -171,6 +171,7 @@ function LandingEventEditor({ event, onChange, onRemove }) {
         <label className="form-field"><span className="form-label">Date shown</span><input className="input" value={event.date} onChange={(e) => onChange("date", e.target.value)} placeholder="Nov 03" /></label>
         <label className="form-field"><span className="form-label">Event name</span><input className="input" value={event.title} onChange={(e) => onChange("title", e.target.value)} /></label>
         <label className="form-field"><span className="form-label">Time and location</span><input className="input" value={event.meta} onChange={(e) => onChange("meta", e.target.value)} placeholder="3:30 PM · Student Center" /></label>
+        <label className="form-field form-field-full"><span className="form-label">External event link</span><input className="input" type="url" value={event.external_link || ""} onChange={(e) => onChange("external_link", e.target.value)} placeholder="https://forms.example.com/event-signup" /><span className="muted" style={{ fontSize: ".76rem", marginTop: 5 }}>Optional · Registration, tickets, or more information</span></label>
       </div>
       <div className="flex justify-between items-center" style={{ gap: 12, marginTop: 14 }}>
         <div className="flex items-center gap-2">

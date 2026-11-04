@@ -314,6 +314,7 @@ CREATE TABLE events (
   budget          numeric,
   status          text DEFAULT 'planning',
  image           text,
+ external_link   text,
  approval_status text DEFAULT 'pending',
  is_public       boolean DEFAULT false,
  created_at      timestamptz DEFAULT now()
@@ -390,6 +391,7 @@ ALTER TABLE profiles
 
 ALTER TABLE events
  ADD COLUMN IF NOT EXISTS image text,
+ ADD COLUMN IF NOT EXISTS external_link text,
  ADD COLUMN IF NOT EXISTS approval_status text DEFAULT 'pending',
  ADD COLUMN IF NOT EXISTS is_public boolean DEFAULT false;
 

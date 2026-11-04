@@ -13,6 +13,7 @@ import Organization from "./pages/Organization.jsx";
 import Landing from "./pages/Landing.jsx";
 import LandingEditor from "./pages/LandingEditor.jsx";
 import PastEvents from "./pages/PastEvents.jsx";
+import UpcomingEvents from "./pages/UpcomingEvents.jsx";
 
 export default function App() {
   return (
@@ -20,6 +21,7 @@ export default function App() {
       {/* Public routes */}
       <Route path="/" element={<Landing />} />
       <Route path="/past-events" element={<PastEvents />} />
+      <Route path="/upcoming-events" element={<UpcomingEvents />} />
       <Route path="/login" element={<Login />} />
       <Route path="/setup" element={<Setup />} />
 

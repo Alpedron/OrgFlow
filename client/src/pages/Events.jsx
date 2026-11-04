@@ -97,6 +97,11 @@ export default function Events() {
                   {evt.description}
                 </p>
               )}
+              {evt.external_link && (
+                <a href={evt.external_link} target="_blank" rel="noreferrer" style={{ display: "inline-block", marginTop: 7, fontSize: "0.8rem" }}>
+                  Open event link
+                </a>
+              )}
               {evt.approval_status !== "approved" && (
                 <p className="muted" style={{ fontSize: "0.76rem", marginTop: 7 }}>
                   Awaiting Website Admin approval before it appears on the public landing page.

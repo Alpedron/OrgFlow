@@ -65,6 +65,7 @@ export const saveSetup = (data) =>
 
 export const getOrg = () => request("/org");
 export const getPublicLanding = () => request("/landing", { cache: "no-store" });
+export const getUpcomingPublicEvents = () => request("/landing/upcoming-events", { cache: "no-store" });
 export const getPastPublicEvents = () => request("/landing/past-events", { cache: "no-store" });
 export const getLandingContent = () => request("/landing/manage");
 export const updateLandingContent = (content) =>

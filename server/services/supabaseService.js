@@ -63,7 +63,7 @@ const byDate = (field) => (a, b) => {
 };
 
 // Only these fields can be set from requests
-const EVENT_FIELDS = ["name", "description", "event_date", "location", "expected_attendance", "budget", "status", "image", "approval_status", "is_public"];
+const EVENT_FIELDS = ["name", "description", "event_date", "location", "expected_attendance", "budget", "status", "image", "external_link", "approval_status", "is_public"];
 const TASK_FIELDS = ["event_id", "title", "category", "assigned_to", "due_date", "priority", "status"];
 
 function pick(obj, fields) {

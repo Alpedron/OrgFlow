@@ -1,8 +1,10 @@
 import { useEffect, useState } from "react";
-import { ArrowLeft, Clock3, X } from "lucide-react";
+import { ArrowLeft, Clock3, ExternalLink, X } from "lucide-react";
 import { Link } from "react-router-dom";
 import { getPastPublicEvents } from "../services/api.js";
 import "./Landing.css";
+import PublicHeader from "../components/PublicHeader.jsx";
+import PublicFooter from "../components/PublicFooter.jsx";
 
 function formatDate(value) {
   return value
@@ -84,18 +86,17 @@ export default function PastEvents() {
 
   return (
     <main className="landing past-events-page">
-      <header className="landing-header">
-        <Link className="landing-brand" to="/" aria-label="Back to OrgFlow home">
-          <span className="landing-brand-mark" aria-hidden="true">SG</span>
-          <span><strong>OrgFlow</strong><small>CONNECT · ENGAGE · BELONG</small></span>
-        </Link>
-        <Link className="past-events-back" to="/"><ArrowLeft size={16} /> Back to main website</Link>
-      </header>
+      <PublicHeader />
 
       <section className="past-events-hero">
-        <p className="landing-kicker">Our community archive</p>
+        <div className="past-events-hero-topline">
+          <p className="landing-kicker">Our community archive</p>
+          <Link className="past-events-back" to="/">
+            <ArrowLeft size={16} /> Back to main website
+          </Link>
+        </div>
         <h1>Past events</h1>
-        <p>Look back at the events and moments that brought our campus organizations together.</p>
+        <p className="past-events-description">Look back at the events and moments that brought our campus organizations together.</p>
       </section>
 
       <section className="past-events-content">
@@ -132,6 +133,11 @@ export default function PastEvents() {
                     </div>
                   </button>
                   <div className="landing-event-meta"><Clock3 size={16} /><span>{formatMeta(event)}</span></div>
+                  {event.external_link && (
+                    <a className="landing-event-link" href={event.external_link} target="_blank" rel="noreferrer">
+                      Event link <ExternalLink size={14} />
+                    </a>
+                  )}
                 </article>
               ))}
             </div>
@@ -153,6 +159,7 @@ export default function PastEvents() {
           <img src={selectedPoster.image} alt={`Full poster for ${selectedPoster.name}`} />
         </div>
       )}
+      <PublicFooter />
     </main>
   );
 }

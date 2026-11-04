@@ -3,6 +3,15 @@ const db = require("../services/supabaseService");
 
 const router = Router();
 
+function isValidExternalLink(value) {
+  if (!value) return true;
+  try {
+    return ["http:", "https:"].includes(new URL(String(value)).protocol);
+  } catch {
+    return false;
+  }
+}
+
 router.get("/", async (_req, res, next) => {
   try {
     res.set("Cache-Control", "no-store, max-age=0");
@@ -16,6 +25,15 @@ router.get("/past-events", async (_req, res, next) => {
   try {
     res.set("Cache-Control", "no-store, max-age=0");
     res.json(await db.getPastPublicEvents());
+  } catch (err) {
+    next(err);
+  }
+});
+
+router.get("/upcoming-events", async (_req, res, next) => {
+  try {
+    res.set("Cache-Control", "no-store, max-age=0");
+    res.json(await db.getPublicEvents());
   } catch (err) {
     next(err);
   }
@@ -37,6 +55,9 @@ router.put("/manage", async (req, res, next) => {
     if (!req.account?.isWebsiteAdmin) return res.status(403).json({ error: "Only website administrators can edit the public website" });
     const content = req.body || {};
     if (!String(content.headline || "").trim()) return res.status(400).json({ error: "A headline is required" });
+    if ((content.events || []).some((event) => !isValidExternalLink(event.external_link))) {
+      return res.status(400).json({ error: "Featured event links must be valid http:// or https:// URLs" });
+    }
     res.json(await db.updateLandingContent("public", content));
   } catch (err) {
     next(err);

@@ -4,14 +4,15 @@ import {
   ArrowRight,
   ArrowUpRight,
   CalendarDays,
-  ChevronDown,
   Clock3,
-  Menu,
+  ExternalLink,
   Sparkles,
   Users,
   X,
 } from "lucide-react";
 import "./Landing.css";
+import PublicHeader from "../components/PublicHeader.jsx";
+import PublicFooter from "../components/PublicFooter.jsx";
 import { getPublicLanding } from "../services/api.js";
 
 const EVENTS = [
@@ -53,17 +54,21 @@ function publicEventCard(event) {
       .filter(Boolean)
       .join(" · ") || event.meta,
     image: event.image || event.image_url || "",
+    external_link: event.external_link || "",
   };
 }
 
+function isExternalLink(value) {
+  try {
+    return ["http:", "https:"].includes(new URL(value).protocol);
+  } catch {
+    return false;
+  }
+}
+
 export default function Landing() {
-  const [menuOpen, setMenuOpen] = useState(false);
   const [content, setContent] = useState(null);
   const [selectedPoster, setSelectedPoster] = useState(null);
-
-  function closeMenu() {
-    setMenuOpen(false);
-  }
 
   useEffect(() => {
     getPublicLanding().then((data) => {
@@ -88,7 +93,7 @@ export default function Landing() {
   }, [selectedPoster]);
 
   const landingContent = content || {
-    eyebrow: "What's happening with student organizations",
+    eyebrow: "What's happening",
     kicker: "Oakland Community College",
     headline: "November events",
     description: "Stay in the loop with organization announcements, campus events, volunteer opportunities, and everything in between.",
@@ -98,36 +103,7 @@ export default function Landing() {
 
   return (
     <main className="landing">
-      <header className="landing-header">
-        <Link className="landing-brand" to="/" onClick={closeMenu} aria-label="OrgFlow home">
-          <span className="landing-brand-mark" aria-hidden="true">SG</span>
-          <span>
-            <strong>OrgFlow</strong>
-            <small>CONNECT · ENGAGE · BELONG</small>
-          </span>
-        </Link>
-
-        <button
-          className="landing-menu-toggle"
-          type="button"
-          onClick={() => setMenuOpen((open) => !open)}
-          aria-expanded={menuOpen}
-          aria-label={menuOpen ? "Close navigation" : "Open navigation"}
-        >
-          {menuOpen ? <X size={22} /> : <Menu size={22} />}
-        </button>
-
-        <nav className={`landing-nav ${menuOpen ? "is-open" : ""}`} aria-label="Main navigation">
-          <a href="#announcements" onClick={closeMenu}>Announcements</a>
-          <a href="#events" onClick={closeMenu}>Events</a>
-          <Link to="/past-events" onClick={closeMenu}>Past events</Link>
-          <a href="#organizations" onClick={closeMenu} className="landing-nav-dropdown">
-            Orgs / Clubs <ChevronDown size={14} />
-          </a>
-          <a href="#about" onClick={closeMenu}>About us</a>
-          <Link className="landing-login-link" to="/login" onClick={closeMenu}>Log in to OrgFlow</Link>
-        </nav>
-      </header>
+      <PublicHeader />
 
       <section className="landing-hero" id="announcements">
         <div className="landing-hero-copy">
@@ -168,6 +144,11 @@ export default function Landing() {
                 <Clock3 size={16} />
                 <span>{event.meta}</span>
               </div>
+              {isExternalLink(event.external_link) && (
+                <a className="landing-event-link" href={event.external_link} target="_blank" rel="noreferrer">
+                  Event link <ExternalLink size={14} />
+                </a>
+              )}
             </article>
           ))}
         </div>
@@ -208,10 +189,18 @@ export default function Landing() {
                   <Clock3 size={16} />
                   <span>{event.meta}</span>
                 </div>
+                {isExternalLink(event.external_link) && (
+                  <a className="landing-event-link" href={event.external_link} target="_blank" rel="noreferrer">
+                    Event link <ExternalLink size={14} />
+                  </a>
+                )}
               </article>
             ))}
           </div>
-          <div className="landing-past-events-link">
+          <div className="landing-org-event-links">
+            <Link to="/upcoming-events">
+              View all upcoming events <ArrowRight size={16} />
+            </Link>
             <Link to="/past-events">
               View past organization events <ArrowRight size={16} />
             </Link>
@@ -261,7 +250,7 @@ export default function Landing() {
       <section className="landing-about" id="about">
         <div>
           <p className="landing-kicker">About OrgFlow</p>
-          <h2>The front door to a more connected campus.</h2>
+          <h2>Connecting students to organizations/clubs</h2>
         </div>
         <p>
           OrgFlow helps student organizations move from scattered messages to
@@ -273,11 +262,7 @@ export default function Landing() {
         </Link>
       </section>
 
-      <footer className="landing-footer">
-        <span>© {new Date().getFullYear()} OrgFlow</span>
-        <span>Built for the people who make campus happen.</span>
-        <Link to="/login">Log in</Link>
-      </footer>
+      <PublicFooter />
     </main>
   );
 }

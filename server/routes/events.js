@@ -3,6 +3,15 @@ const db = require("../services/supabaseService");
 
 const router = Router();
 
+function isValidExternalLink(value) {
+  if (!value) return true;
+  try {
+    return ["http:", "https:"].includes(new URL(String(value)).protocol);
+  } catch {
+    return false;
+  }
+}
+
 // GET /api/events
 router.get("/", async (req, res, next) => {
   try {
@@ -32,6 +41,9 @@ router.post("/", async (req, res, next) => {
     if (!name || !event_date) {
       return res.status(400).json({ error: "Event name and date are required" });
     }
+    if (!isValidExternalLink(req.body.external_link)) {
+      return res.status(400).json({ error: "External link must be a valid http:// or https:// URL" });
+    }
     const event = await db.createEvent(req.orgId, req.body);
     res.status(201).json(event);
   } catch (err) {
@@ -43,6 +55,9 @@ router.post("/", async (req, res, next) => {
 router.patch("/:id", async (req, res, next) => {
   try {
     if (!req.account?.isAdmin) return res.status(403).json({ error: "Only organization admins can manage event listings" });
+    if (!isValidExternalLink(req.body.external_link)) {
+      return res.status(400).json({ error: "External link must be a valid http:// or https:// URL" });
+    }
     const event = await db.updateEvent(req.orgId, req.params.id, req.body);
     if (!event) return res.status(404).json({ error: "Event not found" });
     res.json(event);

@@ -19,6 +19,7 @@ export default function EventForm({ event, onClose, onSaved }) {
     budget: event?.budget ?? "",
     description: event?.description || "",
     image: event?.image || "",
+    external_link: event?.external_link || "",
   });
   const [error, setError] = useState("");
   const [saving, setSaving] = useState(false);
@@ -49,6 +50,15 @@ export default function EventForm({ event, onClose, onSaved }) {
       setError("Please give the event a name and a date.");
       return;
     }
+    if (form.external_link.trim()) {
+      try {
+        const url = new URL(form.external_link.trim());
+        if (!["http:", "https:"].includes(url.protocol)) throw new Error();
+      } catch {
+        setError("Enter a valid external link beginning with http:// or https://.");
+        return;
+      }
+    }
     setSaving(true);
     try {
       const body = {
@@ -59,6 +69,7 @@ export default function EventForm({ event, onClose, onSaved }) {
         budget: form.budget === "" ? null : parseFloat(form.budget),
         description: form.description.trim() || null,
         image: form.image || null,
+        external_link: form.external_link.trim() || null,
       };
       const saved = event ? await updateEvent(event.id, body) : await createEvent(body);
       onSaved(saved);
@@ -107,6 +118,19 @@ export default function EventForm({ event, onClose, onSaved }) {
           <label className="form-field form-field-full">
             <span className="form-label">Description</span>
             <textarea className="textarea" value={form.description} onChange={set("description")} />
+          </label>
+          <label className="form-field form-field-full">
+            <span className="form-label">External event link</span>
+            <input
+              className="input"
+              type="url"
+              value={form.external_link}
+              onChange={set("external_link")}
+              placeholder="https://forms.example.com/event-signup"
+            />
+            <span className="muted" style={{ fontSize: ".76rem", marginTop: 5 }}>
+              Optional · Add a registration page, ticket link, or more information.
+            </span>
           </label>
           <div className="form-field form-field-full">
             <span className="form-label">Event photo</span>
